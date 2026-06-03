@@ -1,83 +1,108 @@
 <script lang="ts">
-	// Phase 0 placeholder screen — no Plex integration yet (spec §9).
-	const phase = 'Phase 0 — Skeleton';
+	// Status gate (Phase 1). Boot happens in +layout.svelte; this picks the screen for the state.
+	import { session } from '$lib/stores/session.svelte';
+	import { bootSession } from '$lib/plex/discovery';
+	import { signOut } from '$lib/plex/auth';
+	import PairScreen from '$lib/components/PairScreen.svelte';
+	import ConnectedScreen from '$lib/components/ConnectedScreen.svelte';
+
+	const bootingLabel = $derived(
+		session.status === 'discovering'
+			? 'Finding your server…'
+			: session.status === 'authenticated'
+				? 'Connecting…'
+				: 'Starting…'
+	);
+
+	function retryDiscovery() {
+		void bootSession();
+	}
 </script>
 
-<main class="hero">
-	<div class="mark" aria-hidden="true">
-		<span class="dot"></span>
-	</div>
-
-	<h1>Cabin</h1>
-	<p class="tagline">Plex music, made for the car.</p>
-
-	<div class="status" role="status">
-		<span class="badge">{phase}</span>
-		<span class="dim">Not paired yet — Plex pairing arrives in Phase 1.</span>
-	</div>
-</main>
+{#if session.status === 'connected'}
+	<ConnectedScreen />
+{:else if session.status === 'unauthenticated' || session.status === 'pairing'}
+	<PairScreen />
+{:else if session.status === 'error'}
+	<main class="state">
+		<h1>Couldn't connect</h1>
+		<p class="msg">{session.error?.message}</p>
+		{#if session.error?.detail}<p class="detail">{session.error.detail}</p>{/if}
+		<div class="actions">
+			<button class="primary" onclick={retryDiscovery}>Try again</button>
+			<button class="ghost" onclick={signOut}>Sign out</button>
+		</div>
+	</main>
+{:else}
+	<!-- booting | authenticated | discovering -->
+	<main class="state">
+		<div class="spinner" aria-hidden="true"></div>
+		<p class="msg">{bootingLabel}</p>
+	</main>
+{/if}
 
 <style>
-	.hero {
+	.state {
 		min-height: 100dvh;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
+		gap: 1rem;
 		padding: 6vh 8vw;
 		text-align: center;
 	}
-
-	.mark {
-		display: grid;
-		place-items: center;
-		width: clamp(88px, 12vw, 140px);
-		height: clamp(88px, 12vw, 140px);
-		margin-bottom: 1.5rem;
-		border-radius: 50%;
-		background: var(--surface);
-	}
-
-	.dot {
-		width: 28%;
-		height: 28%;
-		border-radius: 50%;
-		background: var(--accent);
-	}
-
 	h1 {
 		margin: 0;
-		font-size: clamp(3rem, 7vw, 6rem);
+		font-size: clamp(2rem, 4.5vw, 3.25rem);
 		font-weight: 700;
 		letter-spacing: -0.02em;
 	}
-
-	.tagline {
-		margin: 0.25rem 0 0;
-		font-size: clamp(1.1rem, 2.2vw, 1.6rem);
-		color: var(--text-dim);
+	.msg {
+		margin: 0;
+		font-size: clamp(1rem, 2vw, 1.35rem);
+		color: var(--text);
 	}
-
-	.status {
+	.detail {
+		margin: 0;
+		max-width: 680px;
+		color: var(--text-dim);
+		font-size: 0.95rem;
+		word-break: break-word;
+	}
+	.actions {
 		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.75rem;
-		margin-top: 2.5rem;
+		flex-wrap: wrap;
+		gap: 1rem;
+		margin-top: 1rem;
 	}
-
-	.badge {
-		padding: 0.5rem 1rem;
-		border-radius: 999px;
-		background: var(--bg-elevated);
-		font-size: 0.95rem;
+	.primary,
+	.ghost {
+		min-height: var(--tap-min);
+		padding: 0 2rem;
+		border-radius: var(--radius);
+		font-size: 1.1rem;
 		font-weight: 600;
-		letter-spacing: 0.02em;
 	}
-
-	.dim {
-		color: var(--text-dim);
-		font-size: 0.95rem;
+	.primary {
+		background: var(--accent);
+		color: #fff;
+	}
+	.ghost {
+		background: var(--surface);
+		color: var(--text);
+	}
+	.spinner {
+		width: 48px;
+		height: 48px;
+		border-radius: 50%;
+		border: 4px solid var(--surface);
+		border-top-color: var(--accent);
+		animation: spin 0.9s linear infinite;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 </style>
