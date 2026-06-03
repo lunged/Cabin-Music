@@ -1,0 +1,12 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "cabin",
+	"compatibility_date": "2026-06-03",
+	"assets": {
+		"directory": "./build",
+		"not_found_handling": "single-page-application"
+	}
+	// Optional Plex JSON/auth proxy (spec §6) — add ONLY if CORS misbehaves in-car.
+	// Audio NEVER transits the Worker. To enable, create src/worker/index.ts and uncomment:
+	// "main": "src/worker/index.ts"
+}
