@@ -26,7 +26,12 @@ function mapHubs(c: any): Hub[] {
 			type: h.type ?? '',
 			size: h.size,
 			more: h.more,
-			items: Array.isArray(h.Metadata) ? (h.Metadata as Metadata[]) : []
+			// Items may arrive under Metadata[] OR Directory[] (mixes/stations use Directory) — check both.
+			items: (Array.isArray(h.Metadata)
+				? h.Metadata
+				: Array.isArray(h.Directory)
+					? h.Directory
+					: []) as Metadata[]
 		}))
 		.filter((h) => h.items.length > 0);
 }
@@ -40,10 +45,18 @@ export async function getSections(signal?: AbortSignal): Promise<Section[]> {
 		.map((d) => ({ key: String(d.key), type: d.type, title: d.title, uuid: d.uuid, thumb: d.thumb }));
 }
 
-/** Home hub rows for a section (Recently Added, Recently Played, Mixes, On This Day, …). */
+/** Home hub rows for a section (Recently Added, Recently Played, Mixes, On This Day, …).
+ *  `includeMyMixes` / `includeAnniversaryReleases` are OPT-IN — without them the server omits the
+ *  "Mixes for You" and "On This Day" hubs entirely. includeStations/ExternalMedia=0 trims noise. */
 export async function getHubs(sectionId: string, count = 12, signal?: AbortSignal): Promise<Hub[]> {
 	const data = await serverFetch<any>(`/hubs/sections/${sectionId}`, {
-		query: { count, excludeFields: 'summary' },
+		query: {
+			count,
+			includeStations: 0,
+			includeExternalMedia: 0,
+			includeMyMixes: 1,
+			includeAnniversaryReleases: 1
+		},
 		signal
 	});
 	return mapHubs(container(data));

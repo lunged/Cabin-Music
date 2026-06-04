@@ -2,15 +2,26 @@
 	import ArtTile from './ArtTile.svelte';
 	import type { Metadata } from '$lib/plex/types';
 
-	let { title, items, tileSize = 168 }: { title: string; items: Metadata[]; tileSize?: number } =
-		$props();
+	let {
+		title,
+		items,
+		tileSize = 168,
+		subtitleFor
+	}: {
+		title: string;
+		items: Metadata[];
+		tileSize?: number;
+		subtitleFor?: (item: Metadata) => string;
+	} = $props();
 </script>
 
 <section class="hub">
 	<h2>{title}</h2>
 	<div class="row">
-		{#each items as item (item.ratingKey)}
-			<ArtTile {item} size={tileSize} />
+		{#each items as item (item.ratingKey ?? item.key ?? item.title)}
+			<div class="slot" style="width: {tileSize}px">
+				<ArtTile {item} size={tileSize} subtitle={subtitleFor ? subtitleFor(item) : undefined} />
+			</div>
 		{/each}
 	</div>
 </section>
@@ -36,5 +47,9 @@
 	}
 	.row::-webkit-scrollbar {
 		display: none;
+	}
+	.slot {
+		flex: 0 0 auto;
+		scroll-snap-align: start;
 	}
 </style>

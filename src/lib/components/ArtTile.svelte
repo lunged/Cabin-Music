@@ -1,9 +1,15 @@
 <script lang="ts">
-	// A square (or round, for artists) album-art tile that links to the item's detail route.
+	// Album-art tile that fills its container (square art via aspect-ratio; round for artists).
+	// `size` controls requested image resolution, not layout width (the parent sizes it).
+	// `subtitle` optionally overrides the computed subtitle (e.g. "3 years ago" for On This Day).
 	import { artUrl } from '$lib/plex/media';
 	import type { Metadata } from '$lib/plex/types';
 
-	let { item, size = 168 }: { item: Metadata; size?: number } = $props();
+	let {
+		item,
+		size = 168,
+		subtitle: subtitleOverride
+	}: { item: Metadata; size?: number; subtitle?: string } = $props();
 
 	const isArtist = $derived(item.type === 'artist');
 
@@ -14,10 +20,11 @@
 				: item.type === 'playlist'
 					? (item.composite ?? item.thumb)
 					: item.thumb;
-		return artUrl(thumb, size * 2); // 2× for crisp art on retina
+		return artUrl(thumb, size * 2);
 	});
 
 	const subtitle = $derived.by(() => {
+		if (subtitleOverride !== undefined) return subtitleOverride;
 		switch (item.type) {
 			case 'track':
 				return item.grandparentTitle ?? item.parentTitle ?? '';
@@ -33,23 +40,25 @@
 	const href = $derived.by(() => {
 		switch (item.type) {
 			case 'artist':
-				return `/artist/${item.ratingKey}`;
+				return item.ratingKey ? `/artist/${item.ratingKey}` : '#';
 			case 'album':
-				return `/album/${item.ratingKey}`;
-			case 'track':
-				return `/album/${item.parentRatingKey ?? item.ratingKey}`;
+				return item.ratingKey ? `/album/${item.ratingKey}` : '#';
+			case 'track': {
+				const k = item.parentRatingKey ?? item.ratingKey;
+				return k ? `/album/${k}` : '#';
+			}
 			case 'playlist':
-				return `/playlist/${item.ratingKey}`;
+				return item.ratingKey ? `/playlist/${item.ratingKey}` : '#';
 			default:
-				return '#';
+				return '#'; // e.g. "Mixes for You" stations — playback arrives in Phase 3
 		}
 	});
 </script>
 
-<a class="tile" {href} style="--size: {size}px" title={item.title}>
+<a class="tile" {href} title={item.title}>
 	<div class="art" class:round={isArtist}>
 		{#if art}
-			<img src={art} alt="" loading="lazy" decoding="async" width={size} height={size} />
+			<img src={art} alt="" loading="lazy" decoding="async" />
 		{:else}
 			<div class="ph"></div>
 		{/if}
@@ -62,18 +71,16 @@
 
 <style>
 	.tile {
-		flex: 0 0 auto;
-		width: var(--size);
+		width: 100%;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
 		color: var(--text);
 		text-decoration: none;
-		scroll-snap-align: start;
 	}
 	.art {
-		width: var(--size);
-		height: var(--size);
+		width: 100%;
+		aspect-ratio: 1 / 1;
 		border-radius: 10px;
 		overflow: hidden;
 		background: var(--surface);

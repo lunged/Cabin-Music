@@ -7,7 +7,7 @@
 	import type { Hub, Metadata } from '$lib/plex/types';
 
 	type Kind = 'mixes' | 'recentlyPlayed' | 'recentlyAdded' | 'onThisDay' | 'playlists' | 'other';
-	type Row = { key: string; title: string; items: Metadata[] };
+	type Row = { key: string; title: string; items: Metadata[]; subtitleFor?: (m: Metadata) => string };
 
 	let rows = $state<Row[]>([]);
 	let loading = $state(true);
@@ -23,14 +23,22 @@
 		return () => ctrl.abort();
 	});
 
-	// Classify a hub by identifier OR title OR type, so naming differences across servers still match.
+	// Classify a hub by identifier OR title OR type — naming varies by server version/locale.
 	function kindOf(h: Hub): Kind {
 		const s = `${h.hubIdentifier} ${h.title} ${h.type}`.toLowerCase();
 		if (s.includes('mix')) return 'mixes';
 		if (s.includes('recentlyplayed') || s.includes('recently played') || s.includes('lastplayed'))
 			return 'recentlyPlayed';
 		if (s.includes('recentlyadded') || s.includes('recently added')) return 'recentlyAdded';
-		if (s.includes('onthisday') || s.includes('on this day')) return 'onThisDay';
+		if (
+			s.includes('onthisday') ||
+			s.includes('on this day') ||
+			s.includes('this day') ||
+			s.includes('anniversary') ||
+			s.includes('memories') ||
+			s.includes('years ago')
+		)
+			return 'onThisDay';
 		if (s.includes('playlist')) return 'playlists';
 		return 'other';
 	}
@@ -61,6 +69,14 @@
 		}
 	}
 
+	// "On This Day" items are albums released today in prior years — label = now − release year.
+	function yearsAgo(m: Metadata): string {
+		if (!m.year) return '';
+		const diff = new Date().getFullYear() - m.year;
+		if (diff <= 0) return String(m.year);
+		return `${diff} year${diff === 1 ? '' : 's'} ago · ${m.year}`;
+	}
+
 	async function load(sectionId: string, sectionTitle: string, signal: AbortSignal) {
 		loading = true;
 		error = null;
@@ -78,7 +94,8 @@
 				.map(({ kind, hub }) => ({
 					key: hub.hubIdentifier,
 					title: labelFor(kind, hub, sectionTitle),
-					items: hub.items
+					items: hub.items,
+					subtitleFor: kind === 'onThisDay' ? yearsAgo : undefined
 				}));
 
 			// Always surface recent playlists, even if the server didn't return a playlist hub.
@@ -114,7 +131,7 @@
 		<p class="dim">Your server didn't return any home rows for this library yet.</p>
 	{:else}
 		{#each rows as row (row.key)}
-			<HubRow title={row.title} items={row.items} />
+			<HubRow title={row.title} items={row.items} subtitleFor={row.subtitleFor} />
 		{/each}
 	{/if}
 </section>
