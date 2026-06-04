@@ -242,13 +242,20 @@ function setupMediaSessionHandlers() {
 }
 
 function setNowPlayingMetadata(track: Metadata) {
+	const artist = track.grandparentTitle ?? '';
+	const album = track.parentTitle ?? '';
+	// Some car browsers (incl. Tesla) surface document.title in the native now-playing widget,
+	// falling back to the hostname when it's blank — so put the track + artist there too.
+	if (typeof document !== 'undefined') {
+		document.title = artist ? `${track.title} — ${artist}` : track.title || 'Cabin Music';
+	}
 	if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || typeof MediaMetadata === 'undefined')
 		return;
 	const art = artUrl(track.parentThumb ?? track.thumb ?? track.grandparentThumb, 300);
 	navigator.mediaSession.metadata = new MediaMetadata({
 		title: track.title,
-		artist: track.grandparentTitle ?? '',
-		album: track.parentTitle ?? '',
+		artist,
+		album,
 		artwork: art ? [{ src: art, sizes: '300x300', type: 'image/jpeg' }] : []
 	});
 }
