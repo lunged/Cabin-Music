@@ -77,6 +77,7 @@ export async function probeIdentity(baseUri: string, signal?: AbortSignal): Prom
 		const raw = await plexFetch<any>('/identity', {
 			base: baseUri,
 			minimalHeaders: true,
+			viaProxy: import.meta.env.PROD, // route the probe through the Worker proxy in prod too
 			timeoutMs: PROBE_TIMEOUT_MS,
 			signal
 		});
@@ -203,7 +204,7 @@ export async function bootSession(signal?: AbortSignal): Promise<void> {
 				fail(
 					'discovering',
 					`Found ${session.candidates.length} server(s), but none were reachable.`,
-					`If this is the first run, add this app's address to Plex → Settings → Network → "List of allowed CORS origins": ${location.origin}`
+					'Could not reach your Plex server. Make sure it is online and Remote Access is enabled (Plex → Settings → Remote Access).'
 				);
 			}
 		} catch (e) {
