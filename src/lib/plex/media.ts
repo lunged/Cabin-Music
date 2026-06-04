@@ -20,7 +20,10 @@ export async function serverFetch<T>(path: string, opts: ServerOpts = {}): Promi
 		base: active.baseUri,
 		token: active.accessToken,
 		tokenIn: 'query',
-		minimalHeaders: true
+		minimalHeaders: true,
+		// In production, route server JSON through the same-origin Worker proxy (no CORS dependency).
+		// In dev, call plex.direct directly (Plex auto-allows localhost).
+		viaProxy: import.meta.env.PROD
 	});
 }
 

@@ -2,11 +2,12 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "cabin-svelte",
 	"compatibility_date": "2026-06-03",
+	// Worker runs in front of the static assets: it proxies /plex (Plex JSON, with CORS headers)
+	// and serves the SPA for everything else via the ASSETS binding.
+	"main": "worker/index.ts",
 	"assets": {
 		"directory": "./build",
-		"not_found_handling": "single-page-application"
+		"not_found_handling": "single-page-application",
+		"binding": "ASSETS"
 	}
-	// Optional Plex JSON/auth proxy (spec §6) — add ONLY if CORS misbehaves in-car.
-	// Audio NEVER transits the Worker. To enable, create src/worker/index.ts and uncomment:
-	// "main": "src/worker/index.ts"
 }

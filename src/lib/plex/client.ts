@@ -7,7 +7,7 @@
 // Note: avoids AbortSignal.any / AbortSignal.timeout (both post-date the car's Chromium ~109);
 // signals are combined manually with a plain AbortController + setTimeout.
 
-import { PLEX_TV_BASE, POLL_REQ_TIMEOUT_MS } from './config';
+import { PLEX_TV_BASE, POLL_REQ_TIMEOUT_MS, PLEX_PROXY_PATH } from './config';
 import { plexHeaders } from './identifiers';
 import { logCall } from '$lib/stores/debug.svelte';
 
@@ -40,6 +40,9 @@ export interface PlexFetchOpts {
 	/** Probe mode: send only `Accept` (no X-Plex-* headers) so the request stays "simple"
 	 *  (no CORS preflight). Used for the token-less /identity reachability check. */
 	minimalHeaders?: boolean;
+	/** Route through the same-origin Worker proxy (/plex?url=…) instead of calling the target
+	 *  directly — used in production to avoid the (now-removed) Plex CORS-allowlist setting. */
+	viaProxy?: boolean;
 }
 
 function buildUrl(base: string, path: string, query?: PlexFetchOpts['query']): string {
@@ -65,7 +68,8 @@ export async function plexFetch<T>(path: string, opts: PlexFetchOpts = {}): Prom
 		query = {},
 		signal,
 		timeoutMs = POLL_REQ_TIMEOUT_MS,
-		minimalHeaders = false
+		minimalHeaders = false,
+		viaProxy = false
 	} = opts;
 
 	const finalQuery = { ...query };
@@ -97,7 +101,8 @@ export async function plexFetch<T>(path: string, opts: PlexFetchOpts = {}): Prom
 	let errMsg: string | undefined;
 
 	try {
-		const res = await fetch(url, { method, headers, signal: controller.signal });
+		const requestUrl = viaProxy ? `${PLEX_PROXY_PATH}?url=${encodeURIComponent(url)}` : url;
+		const res = await fetch(requestUrl, { method, headers, signal: controller.signal });
 		status = res.status;
 		ok = res.ok;
 		const text = await res.text();

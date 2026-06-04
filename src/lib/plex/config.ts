@@ -25,3 +25,8 @@ export const STORAGE_PREFIX = 'cabin.';
 
 /** Debug panel ring-buffer length. */
 export const MAX_LOG = 30;
+
+/** Same-origin Worker proxy for server (plex.direct) JSON calls — used in production only, so the
+ *  deployed app doesn't depend on a Plex CORS-allowlist setting (recent Plex versions removed it).
+ *  Audio + artwork still stream directly (no CORS needed for <audio>/<img>). */
+export const PLEX_PROXY_PATH = '/plex';
