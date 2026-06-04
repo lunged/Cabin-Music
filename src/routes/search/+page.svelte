@@ -36,8 +36,13 @@
 		try {
 			const hubs = await search(query, sectionId, 16, signal);
 			if (signal.aborted) return;
-			// Keep only music result groups (artists/albums/tracks/playlists).
-			results = hubs.filter((h) => /artist|album|track|playlist/i.test(`${h.type} ${h.hubIdentifier}`));
+			// Keep only music result groups (artists/albums/tracks/playlists), and never photos —
+			// "photoalbum" contains "album", so it needs an explicit exclusion.
+			results = hubs.filter(
+				(h) =>
+					/artist|album|track|playlist/i.test(`${h.type} ${h.hubIdentifier}`) &&
+					!/photo/i.test(`${h.type} ${h.hubIdentifier} ${h.title}`)
+			);
 			searched = true;
 		} catch (e) {
 			if (!signal.aborted) error = e instanceof Error ? e.message : String(e);
