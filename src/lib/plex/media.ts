@@ -5,6 +5,7 @@
 import { plexFetch, type PlexFetchOpts } from './client';
 import { getClientId } from './identifiers';
 import { session } from '$lib/stores/session.svelte';
+import { bitrateFor } from '$lib/stores/quality.svelte';
 import type { Metadata } from './types';
 
 type ServerOpts = Pick<PlexFetchOpts, 'query' | 'signal' | 'method' | 'timeoutMs'>;
@@ -51,17 +52,39 @@ export function streamUrl(track: Metadata | null | undefined): string | null {
 	return `${active.baseUri}${partKey}${sep}X-Plex-Token=${encodeURIComponent(active.accessToken)}`;
 }
 
-/** Transcode fallback (MP3) for codecs the browser can't direct-play. Best-effort. */
-export function transcodeUrl(track: Metadata | null | undefined): string | null {
+/**
+ * Transcoded MP3 stream via Plex's universal transcoder. `protocol=http` forces a single contiguous
+ * MP3 (NOT HLS — the car's Chromium ~109 cannot play HLS without extra libraries). Pass a `bitrate`
+ * (kbps) to cap quality (forces re-encode); omit it for the codec-compatibility fallback (remux only
+ * when needed). Best-effort.
+ */
+export function transcodeUrl(track: Metadata | null | undefined, bitrate?: number): string | null {
 	const active = session.active;
 	if (!active || !track?.ratingKey) return null;
 	const params = new URLSearchParams({
 		path: `/library/metadata/${track.ratingKey}`,
 		protocol: 'http',
 		directPlay: '0',
-		directStream: '1',
+		directStream: bitrate ? '0' : '1', // capped tier → force re-encode; fallback → allow remux
 		audioCodec: 'mp3',
+		'X-Plex-Client-Identifier': getClientId(),
 		'X-Plex-Token': active.accessToken
 	});
+	if (bitrate) params.set('audioBitrate', String(bitrate));
 	return `${active.baseUri}/music/:/transcode/universal/start.mp3?${params.toString()}`;
+}
+
+/**
+ * Ordered list of URLs to try for a track, honoring the user's quality setting:
+ *  - 'original' (lossless): direct play first, MP3 transcode as a codec fallback.
+ *  - capped tier: the bitrate-limited transcode first, original as a fallback if it fails.
+ * The player plays the first that works and advances down the list on an audio error.
+ */
+export function playbackCandidates(track: Metadata | null | undefined): string[] {
+	const kbps = bitrateFor();
+	const direct = streamUrl(track);
+	if (kbps == null) {
+		return [direct, transcodeUrl(track)].filter((u): u is string => !!u);
+	}
+	return [transcodeUrl(track, kbps), direct].filter((u): u is string => !!u);
 }

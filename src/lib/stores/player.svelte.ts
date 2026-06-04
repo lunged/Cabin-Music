@@ -2,7 +2,7 @@
 // client-side queue; "Mixes for you" radio (server play queue) is layered on in playback.ts (3b).
 
 import type { Metadata } from '$lib/plex/types';
-import { streamUrl, transcodeUrl, artUrl } from '$lib/plex/media';
+import { playbackCandidates, artUrl } from '$lib/plex/media';
 import {
 	getArtistStationKey,
 	resolveMixStationKey,
@@ -49,8 +49,14 @@ let activeIdx = 0;
 let prefetchIdx = -1; // queue index the INACTIVE element is currently primed with
 let restored = false;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
-let triedTranscode = false;
+let candidates: string[] = []; // ordered playback URLs for the current track (quality + fallbacks)
+let candidateIdx = 0;
 let lastTimelineAt = 0;
+
+/** The preferred (first) playback URL for a track, honoring the quality setting. */
+function primaryUrl(t: Metadata): string | null {
+	return playbackCandidates(t)[0] ?? null;
+}
 
 function rand(n: number): number {
 	return Math.floor(Math.random() * n);
@@ -133,7 +139,7 @@ function prime(i: number) {
 	prefetchIdx = -1;
 	if (i < 0 || i >= player.queue.length || i === player.index) return;
 	const t = player.queue[i];
-	const url = t ? streamUrl(t) : null;
+	const url = t ? primaryUrl(t) : null;
 	const pre = inactive();
 	if (!url || !pre) return;
 	if (pre.src !== url) {
@@ -157,13 +163,13 @@ function reprime() {
 function load(track: Metadata, autoplay: boolean) {
 	const a = ensure();
 	if (!a) return;
-	const url = streamUrl(track);
-	if (!url) {
-		logEvent(`no stream url for "${track.title}"`);
+	candidates = playbackCandidates(track);
+	candidateIdx = 0;
+	if (!candidates.length) {
+		logEvent(`no playable url for "${track.title}"`);
 		return;
 	}
-	triedTranscode = false;
-	a.src = url;
+	a.src = candidates[0];
 	a.load();
 	setNowPlayingMetadata(track);
 	if (autoplay) void a.play().catch((e: unknown) => logEvent(`play blocked: ${(e as Error)?.name ?? e}`));
@@ -173,17 +179,14 @@ function onError() {
 	const a = active();
 	const track = currentTrack();
 	if (!a || !track) return;
-	if (!triedTranscode) {
-		// Direct play failed (likely an unsupported codec) — try a transcode once.
-		triedTranscode = true;
-		const turl = transcodeUrl(track);
-		if (turl) {
-			logEvent(`direct play failed; transcoding "${track.title}"`);
-			a.src = turl;
-			a.load();
-			void a.play().catch(() => {});
-			return;
-		}
+	// Walk the fallback chain (e.g. transcode after a failed direct play, or vice-versa).
+	candidateIdx++;
+	if (candidateIdx < candidates.length) {
+		logEvent(`playback fallback ${candidateIdx} for "${track.title}"`);
+		a.src = candidates[candidateIdx];
+		a.load();
+		void a.play().catch(() => {});
+		return;
 	}
 	logEvent(`playback failed for "${track.title}" — skipping`);
 	next(true);
@@ -196,11 +199,13 @@ function goTo(i: number) {
 		if (old) old.pause();
 		activeIdx ^= 1;
 		prefetchIdx = -1;
-		triedTranscode = false;
 		player.index = i;
 		const a = active();
 		const t = currentTrack();
 		if (a && t) {
+			// The primed element holds candidates[0]; record the chain so onError can fall back.
+			candidates = playbackCandidates(t);
+			candidateIdx = 0;
 			a.currentTime = 0;
 			player.currentTime = 0;
 			player.duration = Number.isFinite(a.duration) ? a.duration : 0;
@@ -321,6 +326,11 @@ export function toggleShuffle(): void {
 
 export function toggleExpanded(): void {
 	player.expanded = !player.expanded;
+}
+
+/** Drop the preloaded next track (e.g. after a quality change) so it re-primes at the new setting. */
+export function invalidatePrefetch(): void {
+	reprime();
 }
 
 // --- queue management (view / reorder / play-next / remove) ---
@@ -518,9 +528,10 @@ export function restore(): void {
 	player.currentTime = resumeAt;
 	const a = ensure();
 	if (t && a) {
-		const url = streamUrl(t);
-		if (url) {
-			a.src = url;
+		candidates = playbackCandidates(t);
+		candidateIdx = 0;
+		if (candidates.length) {
+			a.src = candidates[0];
 			const onMeta = () => {
 				a.currentTime = resumeAt;
 				a.removeEventListener('loadedmetadata', onMeta);

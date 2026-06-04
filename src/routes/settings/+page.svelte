@@ -1,10 +1,24 @@
 <script lang="ts">
 	import { library, setActive } from '$lib/stores/library.svelte';
 	import { theme, setTheme, type ThemeChoice } from '$lib/stores/theme.svelte';
+	import {
+		quality,
+		setQuality,
+		QUALITY_LABEL,
+		QUALITY_KBPS,
+		type Quality
+	} from '$lib/stores/quality.svelte';
+	import { invalidatePrefetch } from '$lib/stores/player.svelte';
 	import { session } from '$lib/stores/session.svelte';
 	import { signOut } from '$lib/plex/auth';
 
 	const themes: ThemeChoice[] = ['auto', 'light', 'dark'];
+	const qualities: Quality[] = ['original', 'high', 'medium', 'low'];
+
+	function pickQuality(q: Quality) {
+		setQuality(q);
+		invalidatePrefetch(); // next track re-primes at the new quality
+	}
 </script>
 
 <section class="page settings">
@@ -27,6 +41,21 @@
 		<div class="seg">
 			{#each themes as t (t)}
 				<button class="seg-btn" class:sel={theme.choice === t} onclick={() => setTheme(t)}>{t}</button>
+			{/each}
+		</div>
+	</div>
+
+	<div class="group">
+		<h2>Audio quality</h2>
+		<p class="dim">
+			Original streams your files untouched — lossless if your library is FLAC/ALAC. The lower
+			settings transcode to MP3 to save data on cellular or relay connections.
+		</p>
+		<div class="seg">
+			{#each qualities as q (q)}
+				<button class="seg-btn" class:sel={quality.choice === q} onclick={() => pickQuality(q)}>
+					{QUALITY_LABEL[q]}{#if q !== 'original'}&nbsp;· {QUALITY_KBPS[q]}k{/if}
+				</button>
 			{/each}
 		</div>
 	</div>
