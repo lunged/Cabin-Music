@@ -67,6 +67,21 @@ export async function resolveMixStationKey(
 	return null;
 }
 
+/** Create an audio play queue from a playlist/mix ID — the documented way to play a playlist
+ *  (POST /playQueues?type=audio&playlistID=…). The response carries the resolved, playable tracks. */
+export async function createPlayQueueFromPlaylist(
+	playlistID: string,
+	opts: { shuffle?: boolean } = {},
+	signal?: AbortSignal
+): Promise<PlayQueue> {
+	const data = await serverFetch<any>('/playQueues', {
+		method: 'POST',
+		query: { type: 'audio', playlistID, shuffle: opts.shuffle ? 1 : 0, repeat: 0 },
+		signal
+	});
+	return readQueue(container(data));
+}
+
 export async function createPlayQueue(
 	uri: string,
 	opts: { continuous?: boolean; shuffle?: boolean } = {},
