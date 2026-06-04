@@ -13,6 +13,7 @@
 	--bg: #16181d; /* near-black, slightly warm */
 	--bg-elevated: #1f2229;
 	--surface: #262a32; /* cards */
+	--slider-track: #262a32; /* unplayed seek/progress groove */
 	--text: #f5f6f8;
 	--text-dim: #9aa0aa;
 	--accent: #e31937; /* Tesla red — active/playing ONLY */
@@ -28,6 +29,7 @@
 	--bg: #eceef2; /* soft light grey, not pure white */
 	--bg-elevated: #ffffff;
 	--surface: #ffffff;
+	--slider-track: #ccd2dc; /* visible grey groove on the white bar */
 	--text: #16181d;
 	--text-dim: #5b626e;
 	--accent: #e31937;

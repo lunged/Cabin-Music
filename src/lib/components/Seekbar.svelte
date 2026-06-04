@@ -96,7 +96,7 @@
 		right: 0;
 		height: 5px;
 		border-radius: 999px;
-		background: var(--surface);
+		background: var(--slider-track);
 	}
 	.fill {
 		position: absolute;
