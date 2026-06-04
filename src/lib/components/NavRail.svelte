@@ -35,7 +35,7 @@
 	.rail {
 		flex: 0 0 auto;
 		width: clamp(96px, 11vw, 150px);
-		height: 100dvh;
+		height: 100%;
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;

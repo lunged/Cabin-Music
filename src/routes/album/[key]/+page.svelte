@@ -2,7 +2,9 @@
 	import { page } from '$app/state';
 	import { getMetadata, getChildren } from '$lib/plex/library';
 	import { artUrl } from '$lib/plex/media';
+	import { playList } from '$lib/stores/player.svelte';
 	import TrackList from '$lib/components/TrackList.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import type { Metadata } from '$lib/plex/types';
 
 	let header = $state<Metadata | null>(null);
@@ -12,9 +14,8 @@
 
 	const key = $derived(page.params.key);
 	const heroArt = $derived(header ? artUrl(header.thumb, 320) : null);
-	const meta = $derived.by(() => {
+	const metaTail = $derived.by(() => {
 		const parts: string[] = [];
-		if (header?.parentTitle) parts.push(header.parentTitle);
 		if (header?.year) parts.push(String(header.year));
 		if (tracks.length) parts.push(`${tracks.length} track${tracks.length === 1 ? '' : 's'}`);
 		return parts.join(' · ');
@@ -64,7 +65,22 @@
 			<div class="info">
 				<p class="kind">Album</p>
 				<h1>{header.title}</h1>
-				{#if meta}<p class="dim">{meta}</p>{/if}
+				<p class="dim sub">
+					{#if header.parentRatingKey}<a class="alink" href={`/artist/${header.parentRatingKey}`}>{header.parentTitle}</a
+						>{:else if header.parentTitle}{header.parentTitle}{/if}{#if metaTail} · {metaTail}{/if}
+				</p>
+				<div class="actions">
+					<button class="play-btn" onclick={() => playList(tracks, 0)} disabled={!tracks.length}>
+						<Icon name="play" size={20} /> Play
+					</button>
+					<button
+						class="shuffle-btn"
+						onclick={() => playList(tracks, 0, { shuffle: true })}
+						disabled={!tracks.length}
+					>
+						<Icon name="shuffle" size={18} /> Shuffle
+					</button>
+				</div>
 			</div>
 		</header>
 
@@ -115,6 +131,43 @@
 		font-size: clamp(1.8rem, 4vw, 3rem);
 		font-weight: 700;
 		letter-spacing: -0.02em;
+	}
+	.sub {
+		margin: 0;
+	}
+	.alink {
+		color: var(--text);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-top: 1.25rem;
+	}
+	.play-btn,
+	.shuffle-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 52px;
+		padding: 0 1.5rem;
+		border-radius: 999px;
+		font-size: 1rem;
+		font-weight: 600;
+	}
+	.play-btn {
+		background: var(--accent);
+		color: #fff;
+	}
+	.shuffle-btn {
+		background: var(--surface);
+		color: var(--text);
+	}
+	.play-btn:disabled,
+	.shuffle-btn:disabled {
+		opacity: 0.5;
 	}
 	.center {
 		display: grid;

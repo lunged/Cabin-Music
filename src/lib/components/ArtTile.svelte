@@ -1,25 +1,23 @@
 <script lang="ts">
-	// Album-art tile that fills its container (square art via aspect-ratio; round for artists).
-	// `size` controls requested image resolution, not layout width (the parent sizes it).
-	// `subtitle` optionally overrides the computed subtitle (e.g. "3 years ago" for On This Day).
+	// Album-art tile that fills its container (square; round for artists). When `onActivate` is
+	// provided it renders as a button (e.g. a "Mixes for you" tile that starts radio); otherwise a link.
 	import { artUrl } from '$lib/plex/media';
 	import type { Metadata } from '$lib/plex/types';
 
 	let {
 		item,
 		size = 168,
-		subtitle: subtitleOverride
-	}: { item: Metadata; size?: number; subtitle?: string } = $props();
+		subtitle: subtitleOverride,
+		onActivate
+	}: { item: Metadata; size?: number; subtitle?: string; onActivate?: () => void } = $props();
 
 	const isArtist = $derived(item.type === 'artist');
 
 	const art = $derived.by(() => {
 		const thumb =
 			item.type === 'track'
-				? (item.parentThumb ?? item.thumb)
-				: item.type === 'playlist'
-					? (item.composite ?? item.thumb)
-					: item.thumb;
+				? (item.parentThumb ?? item.thumb ?? item.grandparentThumb)
+				: (item.thumb ?? item.composite ?? item.art ?? item.parentThumb ?? item.grandparentThumb);
 		return artUrl(thumb, size * 2);
 	});
 
@@ -50,12 +48,12 @@
 			case 'playlist':
 				return item.ratingKey ? `/playlist/${item.ratingKey}` : '#';
 			default:
-				return '#'; // e.g. "Mixes for You" stations — playback arrives in Phase 3
+				return '#';
 		}
 	});
 </script>
 
-<a class="tile" {href} title={item.title}>
+{#snippet body()}
 	<div class="art" class:round={isArtist}>
 		{#if art}
 			<img src={art} alt="" loading="lazy" decoding="async" />
@@ -67,7 +65,13 @@
 		<span class="title">{item.title}</span>
 		{#if subtitle}<span class="sub">{subtitle}</span>{/if}
 	</div>
-</a>
+{/snippet}
+
+{#if onActivate}
+	<button class="tile" onclick={onActivate} title={item.title}>{@render body()}</button>
+{:else}
+	<a class="tile" {href} title={item.title}>{@render body()}</a>
+{/if}
 
 <style>
 	.tile {
@@ -77,6 +81,7 @@
 		gap: 0.5rem;
 		color: var(--text);
 		text-decoration: none;
+		text-align: left;
 	}
 	.art {
 		width: 100%;

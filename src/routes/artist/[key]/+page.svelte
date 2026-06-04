@@ -2,7 +2,9 @@
 	import { page } from '$app/state';
 	import { getMetadata, getChildren } from '$lib/plex/library';
 	import { artUrl } from '$lib/plex/media';
+	import { shuffleArtist, playArtistRadio } from '$lib/stores/player.svelte';
 	import ArtTile from '$lib/components/ArtTile.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import type { Metadata } from '$lib/plex/types';
 
 	let header = $state<Metadata | null>(null);
@@ -58,6 +60,14 @@
 				<p class="kind">Artist</p>
 				<h1>{header.title}</h1>
 				<p class="dim">{albums.length} album{albums.length === 1 ? '' : 's'}</p>
+				<div class="actions">
+					<button class="shuffle-btn" onclick={() => key && shuffleArtist(key)}>
+						<Icon name="shuffle" size={18} /> Shuffle
+					</button>
+					<button class="mix-btn" onclick={() => key && playArtistRadio(key)}>
+						<Icon name="radio" size={18} /> Artist Mix
+					</button>
+				</div>
 			</div>
 		</header>
 
@@ -115,6 +125,31 @@
 		font-size: clamp(1.8rem, 4vw, 3rem);
 		font-weight: 700;
 		letter-spacing: -0.02em;
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-top: 1.25rem;
+	}
+	.shuffle-btn,
+	.mix-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 52px;
+		padding: 0 1.5rem;
+		border-radius: 999px;
+		font-size: 1rem;
+		font-weight: 600;
+	}
+	.shuffle-btn {
+		background: var(--accent);
+		color: #fff;
+	}
+	.mix-btn {
+		background: var(--surface);
+		color: var(--text);
 	}
 	.art-grid {
 		display: grid;

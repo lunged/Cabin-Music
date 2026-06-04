@@ -2,12 +2,19 @@
 	// Home — Plex-style hub rows for the active library, in the user's preferred order.
 	import { activeSection } from '$lib/stores/library.svelte';
 	import { getHubs, getPlaylists } from '$lib/plex/library';
+	import { playMixItem } from '$lib/stores/player.svelte';
 	import { logEvent } from '$lib/stores/debug.svelte';
 	import HubRow from '$lib/components/HubRow.svelte';
 	import type { Hub, Metadata } from '$lib/plex/types';
 
 	type Kind = 'mixes' | 'recentlyPlayed' | 'recentlyAdded' | 'onThisDay' | 'playlists' | 'other';
-	type Row = { key: string; title: string; items: Metadata[]; subtitleFor?: (m: Metadata) => string };
+	type Row = {
+		key: string;
+		title: string;
+		items: Metadata[];
+		subtitleFor?: (m: Metadata) => string;
+		onItem?: (m: Metadata) => void;
+	};
 
 	let rows = $state<Row[]>([]);
 	let loading = $state(true);
@@ -77,6 +84,16 @@
 		return `${diff} year${diff === 1 ? '' : 's'} ago · ${m.year}`;
 	}
 
+	// "Mixes for you" are per-artist radio with no art of their own — use the artist's image.
+	function withArtistArt(m: Metadata): Metadata {
+		const artistKey =
+			m.key?.match(/\/library\/metadata\/(\d+)/)?.[1] ??
+			m.grandparentRatingKey ??
+			m.parentRatingKey ??
+			(m.type === 'artist' ? m.ratingKey : undefined);
+		return artistKey ? { ...m, thumb: `/library/metadata/${artistKey}/thumb` } : m;
+	}
+
 	async function load(sectionId: string, sectionTitle: string, signal: AbortSignal) {
 		loading = true;
 		error = null;
@@ -84,9 +101,12 @@
 		try {
 			const hubs = await getHubs(sectionId, 16, signal);
 			if (signal.aborted) return;
-
-			// Diagnostic: surface the real hub identifiers in the debug panel (long-press top-left).
 			logEvent(`hubs: ${hubs.map((h) => `${h.hubIdentifier}(${h.items.length})`).join(', ') || 'none'}`);
+			const mi = hubs.find((h) => kindOf(h) === 'mixes')?.items?.[0];
+			if (mi)
+				logEvent(
+					`mix item: type=${mi.type} key=${mi.key ?? '?'} rk=${mi.ratingKey ?? '?'} parent=${mi.parentRatingKey ?? '?'} gp=${mi.grandparentRatingKey ?? '?'}`
+				);
 
 			const built: Row[] = hubs
 				.map((h) => ({ kind: kindOf(h), hub: h }))
@@ -94,11 +114,11 @@
 				.map(({ kind, hub }) => ({
 					key: hub.hubIdentifier,
 					title: labelFor(kind, hub, sectionTitle),
-					items: hub.items,
-					subtitleFor: kind === 'onThisDay' ? yearsAgo : undefined
+					items: kind === 'mixes' ? hub.items.map(withArtistArt) : hub.items,
+					subtitleFor: kind === 'onThisDay' ? yearsAgo : undefined,
+					onItem: kind === 'mixes' ? (m: Metadata) => void playMixItem(m) : undefined
 				}));
 
-			// Always surface recent playlists, even if the server didn't return a playlist hub.
 			const hasPlaylists = hubs.some((h) => kindOf(h) === 'playlists');
 			if (!hasPlaylists) {
 				try {
@@ -131,7 +151,7 @@
 		<p class="dim">Your server didn't return any home rows for this library yet.</p>
 	{:else}
 		{#each rows as row (row.key)}
-			<HubRow title={row.title} items={row.items} subtitleFor={row.subtitleFor} />
+			<HubRow title={row.title} items={row.items} subtitleFor={row.subtitleFor} onItem={row.onItem} />
 		{/each}
 	{/if}
 </section>

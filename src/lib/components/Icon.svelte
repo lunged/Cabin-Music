@@ -33,5 +33,34 @@
 		<line x1="4" y1="16" x2="20" y2="16" />
 		<circle cx="10" cy="8" r="2.6" fill="currentColor" stroke="none" />
 		<circle cx="15" cy="16" r="2.6" fill="currentColor" stroke="none" />
+	{:else if name === 'play'}
+		<path d="M7 5l13 7-13 7z" fill="currentColor" stroke="none" />
+	{:else if name === 'pause'}
+		<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" />
+		<rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" />
+	{:else if name === 'prev'}
+		<rect x="5" y="5" width="2.6" height="14" rx="1" fill="currentColor" stroke="none" />
+		<path d="M20 5l-10 7 10 7z" fill="currentColor" stroke="none" />
+	{:else if name === 'next'}
+		<rect x="16.4" y="5" width="2.6" height="14" rx="1" fill="currentColor" stroke="none" />
+		<path d="M4 5l10 7-10 7z" fill="currentColor" stroke="none" />
+	{:else if name === 'shuffle'}
+		<polyline points="16 3 21 3 21 8" />
+		<line x1="4" y1="20" x2="21" y2="3" />
+		<polyline points="21 16 21 21 16 21" />
+		<line x1="15" y1="15" x2="21" y2="21" />
+		<line x1="4" y1="4" x2="9" y2="9" />
+	{:else if name === 'repeat'}
+		<polyline points="17 1 21 5 17 9" />
+		<path d="M3 11V9a4 4 0 0 1 4-4h14" />
+		<polyline points="7 23 3 19 7 15" />
+		<path d="M21 13v2a4 4 0 0 1-4 4H3" />
+	{:else if name === 'chevron-down'}
+		<polyline points="6 9 12 15 18 9" />
+	{:else if name === 'radio'}
+		<circle cx="12" cy="13" r="2.4" />
+		<path d="M4.9 7.8a10 10 0 0 1 14.2 0" />
+		<path d="M7.8 10.6a6 6 0 0 1 8.4 0" />
+		<path d="M12 15.4V20" />
 	{/if}
 </svg>

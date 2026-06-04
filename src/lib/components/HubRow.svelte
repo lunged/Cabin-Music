@@ -6,12 +6,14 @@
 		title,
 		items,
 		tileSize = 168,
-		subtitleFor
+		subtitleFor,
+		onItem
 	}: {
 		title: string;
 		items: Metadata[];
 		tileSize?: number;
 		subtitleFor?: (item: Metadata) => string;
+		onItem?: (item: Metadata) => void;
 	} = $props();
 </script>
 
@@ -20,7 +22,12 @@
 	<div class="row">
 		{#each items as item (item.ratingKey ?? item.key ?? item.title)}
 			<div class="slot" style="width: {tileSize}px">
-				<ArtTile {item} size={tileSize} subtitle={subtitleFor ? subtitleFor(item) : undefined} />
+				<ArtTile
+					{item}
+					size={tileSize}
+					subtitle={subtitleFor ? subtitleFor(item) : undefined}
+					onActivate={onItem ? () => onItem(item) : undefined}
+				/>
 			</div>
 		{/each}
 	</div>

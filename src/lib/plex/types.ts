@@ -78,7 +78,8 @@ export interface Metadata {
 	thumb?: string;
 	parentThumb?: string;
 	grandparentThumb?: string;
-	composite?: string; // playlist art grid
+	composite?: string; // playlist/mix art grid
+	art?: string; // background / fallback art
 	index?: number; // track number
 	year?: number;
 	duration?: number; // ms
@@ -86,6 +87,7 @@ export interface Metadata {
 	childCount?: number;
 	addedAt?: number;
 	lastViewedAt?: number;
+	playQueueItemID?: number; // present on items returned from /playQueues
 	Media?: { Part?: { key?: string }[] }[];
 }
 
