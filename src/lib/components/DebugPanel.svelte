@@ -151,7 +151,7 @@
 		padding: 16px;
 		background: var(--bg-elevated);
 		color: var(--text);
-		box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+		box-shadow: 0 0 40px var(--shadow);
 		font-family: ui-monospace, 'SF Mono', Menlo, monospace;
 		font-size: 13px;
 		overflow: hidden;
@@ -217,7 +217,7 @@
 		gap: 6px;
 		align-items: baseline;
 		padding: 3px 0;
-		border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+		border-bottom: 1px solid var(--border);
 	}
 	.log li .e {
 		grid-column: 1 / -1;
@@ -227,7 +227,7 @@
 		color: var(--accent);
 	}
 	.st {
-		color: #7fd17f;
+		color: var(--ok);
 	}
 	.ms,
 	.m {

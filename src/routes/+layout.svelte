@@ -1,13 +1,17 @@
 <script lang="ts">
 	import '../app.css';
+	import { onMount } from 'svelte';
 	import favicon from '$lib/assets/favicon.svg';
 	import DebugPanel from '$lib/components/DebugPanel.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { bootSession } from '$lib/plex/discovery';
+	import { initTheme } from '$lib/stores/theme.svelte';
 
 	let { children } = $props();
 
-	// Boot the session once on mount: pair → discover → connect, or reconnect from cache.
-	$effect(() => {
+	onMount(() => {
+		initTheme();
+		// Boot the session once: pair → discover → connect, or reconnect from cache.
 		const ctrl = new AbortController();
 		void bootSession(ctrl.signal);
 		return () => ctrl.abort();
@@ -20,4 +24,5 @@
 
 {@render children()}
 
+<ThemeToggle />
 <DebugPanel />

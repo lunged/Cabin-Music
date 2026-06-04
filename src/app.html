@@ -1,10 +1,39 @@
 <!doctype html>
-<html lang="en" style="background: #16181d; color-scheme: dark;">
+<html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
 		<meta name="theme-color" content="#16181d" />
+		<!-- Theme bootstrap: resolve + apply the theme BEFORE paint, so there's no flash of the
+		     wrong theme on load. Keep these hex values in sync with src/app.css. -->
+		<style>
+			:root {
+				background: #16181d;
+				color-scheme: dark;
+			}
+			:root[data-theme='light'] {
+				background: #eceef2;
+				color-scheme: light;
+			}
+		</style>
+		<script>
+			(function () {
+				try {
+					var raw = localStorage.getItem('cabin.theme');
+					var choice = raw ? JSON.parse(raw) : 'auto';
+					var prefersLight =
+						window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+					var resolved =
+						choice === 'light' || choice === 'dark' ? choice : prefersLight ? 'light' : 'dark';
+					document.documentElement.dataset.theme = resolved;
+					var m = document.querySelector('meta[name="theme-color"]');
+					if (m) m.setAttribute('content', resolved === 'light' ? '#eceef2' : '#16181d');
+				} catch (e) {
+					document.documentElement.dataset.theme = 'dark';
+				}
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

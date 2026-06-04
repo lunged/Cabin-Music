@@ -1,21 +1,39 @@
-/* Cabin — global design tokens & base. Tokens per spec §7 (Tesla-native feel). */
+/* Cabin — global design tokens & base. Tokens per spec §7 (Tesla-native feel).
+   Two themes: dark (default) and light. JS resolves "auto" (follow the car's day/night via
+   prefers-color-scheme) to a concrete theme and sets <html data-theme="…">; these blocks key
+   off that attribute. */
 :root {
-	color-scheme: dark;
+	/* Shape & type (theme-independent) */
+	--radius: 20px;
+	--tap-min: 72px; /* minimum touch target; transport controls larger */
+	--font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-	/* Palette */
+	/* Dark theme — the default (and the fallback if data-theme is unset) */
+	color-scheme: dark;
 	--bg: #16181d; /* near-black, slightly warm */
 	--bg-elevated: #1f2229;
 	--surface: #262a32; /* cards */
 	--text: #f5f6f8;
 	--text-dim: #9aa0aa;
 	--accent: #e31937; /* Tesla red — active/playing ONLY */
+	--border: rgba(255, 255, 255, 0.08);
+	--shadow: rgba(0, 0, 0, 0.6);
+	--ok: #7fd17f; /* debug-panel success green */
+}
 
-	/* Shape & sizing */
-	--radius: 20px;
-	--tap-min: 72px; /* minimum touch target; transport controls larger */
-
-	/* Type — close to Tesla's UI font, with safe system fallbacks */
-	--font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+/* Light theme — high-contrast, matches the car's daytime UI.
+   Keep --bg in sync with the pre-paint <style> in app.html. */
+:root[data-theme='light'] {
+	color-scheme: light;
+	--bg: #eceef2; /* soft light grey, not pure white */
+	--bg-elevated: #ffffff;
+	--surface: #ffffff;
+	--text: #16181d;
+	--text-dim: #5b626e;
+	--accent: #e31937;
+	--border: rgba(0, 0, 0, 0.12);
+	--shadow: rgba(20, 22, 28, 0.18);
+	--ok: #1a7f37;
 }
 
 *,
