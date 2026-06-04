@@ -28,9 +28,61 @@
 	function collapse() {
 		player.expanded = false;
 	}
+
+	// --- swipe-down to dismiss ---
+	const DISMISS_PX = 110;
+	let dragY = $state(0);
+	let dragging = $state(false);
+	let axisLocked = false;
+	let startX = 0;
+	let startY = 0;
+
+	function onDown(e: PointerEvent) {
+		if (showQueue) return; // queue view scrolls vertically — don't hijack it
+		// Ignore drags that begin on an interactive control (buttons, seekbar, links).
+		if ((e.target as Element).closest('button, a, input, [role="slider"], .queue')) return;
+		startX = e.clientX;
+		startY = e.clientY;
+		dragging = true;
+		axisLocked = false;
+	}
+	function onMove(e: PointerEvent) {
+		if (!dragging) return;
+		const dx = e.clientX - startX;
+		const dy = e.clientY - startY;
+		if (!axisLocked) {
+			if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+			axisLocked = true;
+			if (Math.abs(dx) > Math.abs(dy)) {
+				dragging = false; // horizontal intent → not a dismiss
+				return;
+			}
+		}
+		dragY = Math.max(0, dy); // follow the finger downward only
+	}
+	function onUp() {
+		if (!dragging) return;
+		dragging = false;
+		const dismiss = dragY > DISMISS_PX;
+		dragY = 0;
+		if (dismiss) toggleExpanded();
+	}
 </script>
 
-<div class="np" class:queueview={showQueue} role="dialog" aria-label="Now playing">
+<div
+	class="np"
+	class:queueview={showQueue}
+	role="dialog"
+	aria-label="Now playing"
+	tabindex="-1"
+	style="transform: translateY({dragY}px); transition: transform {dragging ? '0s' : '0.28s ease'}; touch-action: {showQueue
+		? 'auto'
+		: 'none'};"
+	onpointerdown={onDown}
+	onpointermove={onMove}
+	onpointerup={onUp}
+	onpointercancel={onUp}
+>
 	<button class="close" onclick={toggleExpanded} aria-label="Close"><Icon name="chevron-down" size={32} /></button>
 	<button class="queuebtn" class:on={showQueue} onclick={() => (showQueue = !showQueue)} aria-label="Queue">
 		<Icon name="queue" size={26} />
