@@ -55,3 +55,53 @@ export interface ActiveConnection {
 	accessToken: string;
 	connType: ConnType;
 }
+
+/** A library section. Music sections have `type === 'artist'`. */
+export interface Section {
+	key: string;
+	type: string;
+	title: string;
+	uuid?: string;
+	thumb?: string;
+}
+
+/** A generic library item (artist/album/track/playlist) — the fields Cabin reads. */
+export interface Metadata {
+	ratingKey: string;
+	key?: string;
+	type: string; // 'artist' | 'album' | 'track' | 'playlist'
+	title: string;
+	parentTitle?: string; // album (for a track) / artist (for an album)
+	grandparentTitle?: string; // artist (for a track)
+	parentRatingKey?: string;
+	grandparentRatingKey?: string;
+	thumb?: string;
+	parentThumb?: string;
+	grandparentThumb?: string;
+	composite?: string; // playlist art grid
+	index?: number; // track number
+	year?: number;
+	duration?: number; // ms
+	leafCount?: number; // playlist/album track count
+	childCount?: number;
+	addedAt?: number;
+	lastViewedAt?: number;
+	Media?: { Part?: { key?: string }[] }[];
+}
+
+/** A home/search hub — a titled row of items. */
+export interface Hub {
+	hubIdentifier: string;
+	title: string;
+	type: string;
+	size?: number;
+	more?: boolean;
+	items: Metadata[];
+}
+
+/** A paginated list response. */
+export interface PageResult {
+	items: Metadata[];
+	totalSize: number;
+	offset: number;
+}

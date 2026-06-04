@@ -85,3 +85,17 @@ button {
 a {
 	color: inherit;
 }
+
+/* App-shell page layout helpers */
+.page {
+	padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1.25rem, 4vw, 3rem);
+}
+.page > h1 {
+	margin: 0 0 1.25rem;
+	font-size: clamp(1.6rem, 3.2vw, 2.5rem);
+	font-weight: 700;
+	letter-spacing: -0.02em;
+}
+.dim {
+	color: var(--text-dim);
+}

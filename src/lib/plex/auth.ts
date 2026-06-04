@@ -6,6 +6,7 @@ import { plexFetch } from './client';
 import { TokenStore, ConnStore, AccountStore } from './storage';
 import type { Pin } from './types';
 import { session, reset } from '$lib/stores/session.svelte';
+import { clearLibrary } from '$lib/stores/library.svelte';
 import { logEvent } from '$lib/stores/debug.svelte';
 
 /** Create a "strong" PIN. The app.plex.tv/auth deep-link (which the QR/link points at) REQUIRES a
@@ -92,6 +93,7 @@ export function signOut(): void {
 	TokenStore.clear();
 	ConnStore.clear();
 	AccountStore.clear();
+	clearLibrary();
 	reset();
 	logEvent('signed out');
 }
