@@ -62,5 +62,21 @@
 		<path d="M4.9 7.8a10 10 0 0 1 14.2 0" />
 		<path d="M7.8 10.6a6 6 0 0 1 8.4 0" />
 		<path d="M12 15.4V20" />
+	{:else if name === 'queue'}
+		<line x1="4" y1="7" x2="20" y2="7" />
+		<line x1="4" y1="12" x2="20" y2="12" />
+		<line x1="4" y1="17" x2="13" y2="17" />
+	{:else if name === 'plus'}
+		<line x1="12" y1="5" x2="12" y2="19" />
+		<line x1="5" y1="12" x2="19" y2="12" />
+	{:else if name === 'x'}
+		<line x1="6" y1="6" x2="18" y2="18" />
+		<line x1="18" y1="6" x2="6" y2="18" />
+	{:else if name === 'arrow-up'}
+		<line x1="12" y1="19" x2="12" y2="5" />
+		<polyline points="6 11 12 5 18 11" />
+	{:else if name === 'arrow-down'}
+		<line x1="12" y1="5" x2="12" y2="19" />
+		<polyline points="6 13 12 19 18 13" />
 	{/if}
 </svg>

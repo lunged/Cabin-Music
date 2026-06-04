@@ -8,7 +8,8 @@ import {
 	resolveMixStationKey,
 	stationUri,
 	createPlayQueue,
-	pagePlayQueue
+	pagePlayQueue,
+	reportTimeline
 } from '$lib/plex/playback';
 import { readJSON, writeJSON } from '$lib/plex/storage';
 import { STORAGE_PREFIX } from '$lib/plex/config';
@@ -41,9 +42,15 @@ export function currentTrack(): Metadata | null {
 
 // --- module-level, non-reactive ---
 let base: Metadata[] = []; // original (pre-shuffle) order
-let audio: HTMLAudioElement | null = null;
+// Two audio elements ping-pong so the NEXT track is buffered ahead of time (near-gapless): one
+// plays while the other preloads, and on advance we swap to the already-buffered element.
+let players: HTMLAudioElement[] = [];
+let activeIdx = 0;
+let prefetchIdx = -1; // queue index the INACTIVE element is currently primed with
 let restored = false;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let triedTranscode = false;
+let lastTimelineAt = 0;
 
 function rand(n: number): number {
 	return Math.floor(Math.random() * n);
@@ -57,30 +64,98 @@ function shuffled<T>(arr: T[]): T[] {
 	return a;
 }
 
-function el(): HTMLAudioElement | null {
-	if (typeof Audio === 'undefined') return null;
-	if (audio) return audio;
-	audio = new Audio();
-	audio.preload = 'auto';
-	audio.addEventListener('timeupdate', () => {
-		if (audio) player.currentTime = audio.currentTime;
+function attach(a: HTMLAudioElement) {
+	// Events from the inactive (preloading) element are ignored — only the active one drives state.
+	a.addEventListener('timeupdate', () => {
+		if (a !== active()) return;
+		player.currentTime = a.currentTime;
 		persistSoon();
+		maybeReportTimeline();
+		maybePrime();
 	});
-	audio.addEventListener('durationchange', () => {
-		if (audio) player.duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+	a.addEventListener('durationchange', () => {
+		if (a !== active()) return;
+		player.duration = Number.isFinite(a.duration) ? a.duration : 0;
 	});
-	audio.addEventListener('play', () => (player.playing = true));
-	audio.addEventListener('pause', () => (player.playing = false));
-	audio.addEventListener('ended', () => next(true));
-	audio.addEventListener('error', onError);
-	setupMediaSessionHandlers();
-	return audio;
+	a.addEventListener('play', () => {
+		if (a !== active()) return;
+		player.playing = true;
+		reportNow('playing');
+	});
+	a.addEventListener('pause', () => {
+		if (a !== active()) return;
+		player.playing = false;
+		reportNow('paused');
+	});
+	a.addEventListener('ended', () => {
+		if (a !== active()) return;
+		next(true);
+	});
+	a.addEventListener('error', () => {
+		if (a !== active()) return;
+		onError();
+	});
 }
 
-let triedTranscode = false;
+function ensure(): HTMLAudioElement | null {
+	if (typeof Audio === 'undefined') return null;
+	if (players.length) return players[activeIdx];
+	players = [new Audio(), new Audio()];
+	for (const a of players) {
+		a.preload = 'auto';
+		attach(a);
+	}
+	setupMediaSessionHandlers();
+	registerUnloadFlush();
+	return players[activeIdx];
+}
+function el(): HTMLAudioElement | null {
+	return ensure();
+}
+function active(): HTMLAudioElement | null {
+	return players[activeIdx] ?? null;
+}
+function inactive(): HTMLAudioElement | null {
+	return players.length ? players[activeIdx ^ 1] : null;
+}
+
+/** Index of the track to preload next (respecting repeat); -1 if there's nothing to prime. */
+function nextIndexFor(i: number): number {
+	if (player.repeat === 'one') return -1; // repeat-one just replays via seek(0)
+	const n = i + 1;
+	if (n < player.queue.length) return n;
+	if (player.repeat === 'all' && player.queue.length) return 0;
+	return -1;
+}
+
+/** Preload the given queue index into the INACTIVE element so the next advance is seamless. */
+function prime(i: number) {
+	prefetchIdx = -1;
+	if (i < 0 || i >= player.queue.length || i === player.index) return;
+	const t = player.queue[i];
+	const url = t ? streamUrl(t) : null;
+	const pre = inactive();
+	if (!url || !pre) return;
+	if (pre.src !== url) {
+		pre.src = url;
+		pre.load();
+	}
+	prefetchIdx = i;
+}
+/** Prime the next track only as the current one nears its end (avoids doubling bandwidth all song). */
+function maybePrime() {
+	if (prefetchIdx !== -1) return;
+	const dur = player.duration;
+	if (!dur || dur - player.currentTime > 30) return;
+	prime(nextIndexFor(player.index));
+}
+/** Invalidate the preloaded track after a queue change; maybePrime() re-primes near the next end. */
+function reprime() {
+	prefetchIdx = -1;
+}
 
 function load(track: Metadata, autoplay: boolean) {
-	const a = el();
+	const a = ensure();
 	if (!a) return;
 	const url = streamUrl(track);
 	if (!url) {
@@ -95,17 +170,18 @@ function load(track: Metadata, autoplay: boolean) {
 }
 
 function onError() {
+	const a = active();
 	const track = currentTrack();
-	if (!audio || !track) return;
+	if (!a || !track) return;
 	if (!triedTranscode) {
 		// Direct play failed (likely an unsupported codec) — try a transcode once.
 		triedTranscode = true;
 		const turl = transcodeUrl(track);
 		if (turl) {
 			logEvent(`direct play failed; transcoding "${track.title}"`);
-			audio.src = turl;
-			audio.load();
-			void audio.play().catch(() => {});
+			a.src = turl;
+			a.load();
+			void a.play().catch(() => {});
 			return;
 		}
 	}
@@ -114,6 +190,26 @@ function onError() {
 }
 
 function goTo(i: number) {
+	// Gapless path: the inactive element is already buffered with track i → swap to it.
+	if (i === prefetchIdx && inactive()?.src) {
+		const old = active();
+		if (old) old.pause();
+		activeIdx ^= 1;
+		prefetchIdx = -1;
+		triedTranscode = false;
+		player.index = i;
+		const a = active();
+		const t = currentTrack();
+		if (a && t) {
+			a.currentTime = 0;
+			player.currentTime = 0;
+			player.duration = Number.isFinite(a.duration) ? a.duration : 0;
+			setNowPlayingMetadata(t);
+			void a.play().catch((e: unknown) => logEvent(`play blocked: ${(e as Error)?.name ?? e}`));
+		}
+		persist();
+		return;
+	}
 	player.index = i;
 	const t = currentTrack();
 	if (t) load(t, true);
@@ -151,6 +247,7 @@ export function appendToQueue(tracks: Metadata[]): void {
 	if (!tracks.length) return;
 	player.queue = [...player.queue, ...tracks];
 	base = [...base, ...tracks];
+	reprime();
 }
 
 export function toggle(): void {
@@ -198,6 +295,7 @@ export function seek(t: number): void {
 	if (a) {
 		a.currentTime = t;
 		player.currentTime = t;
+		reportNow(player.playing ? 'playing' : 'paused');
 	}
 }
 
@@ -217,11 +315,101 @@ export function toggleShuffle(): void {
 		player.queue = base.slice();
 		player.index = cur ? base.indexOf(cur) : -1;
 	}
+	reprime();
 	persist();
 }
 
 export function toggleExpanded(): void {
 	player.expanded = !player.expanded;
+}
+
+// --- queue management (view / reorder / play-next / remove) ---
+
+/** Jump to a specific queue index and play it. */
+export function jumpTo(i: number): void {
+	if (i < 0 || i >= player.queue.length) return;
+	goTo(i);
+}
+
+/** Insert a track to play right after the current one. */
+export function enqueueNext(track: Metadata): void {
+	if (player.index < 0 || !player.queue.length) {
+		playList([track], 0);
+		return;
+	}
+	const q = player.queue.slice();
+	q.splice(player.index + 1, 0, track);
+	player.queue = q;
+	base = q.slice();
+	reprime();
+	persist();
+}
+
+/** Add a track to the end of the queue. */
+export function enqueueLast(track: Metadata): void {
+	if (player.index < 0 || !player.queue.length) {
+		playList([track], 0);
+		return;
+	}
+	player.queue = [...player.queue, track];
+	base = player.queue.slice();
+	reprime();
+	persist();
+}
+
+/** Remove the queue item at i, adjusting the current index / playback as needed. */
+export function removeAt(i: number): void {
+	if (i < 0 || i >= player.queue.length) return;
+	const wasPlaying = player.playing;
+	const q = player.queue.slice();
+	q.splice(i, 1);
+	if (q.length === 0) {
+		player.queue = [];
+		base = [];
+		player.index = -1;
+		prefetchIdx = -1;
+		const a = active();
+		if (a) {
+			a.pause();
+			a.removeAttribute('src');
+			a.load();
+		}
+		player.playing = false;
+		player.currentTime = 0;
+		player.duration = 0;
+		persist();
+		return;
+	}
+	player.queue = q;
+	base = q.slice();
+	if (i < player.index) {
+		player.index -= 1;
+		reprime();
+	} else if (i === player.index) {
+		// Removed the now-playing track → play whatever shifts into its slot.
+		player.index = Math.min(player.index, q.length - 1);
+		const t = currentTrack();
+		if (t) load(t, wasPlaying);
+	} else {
+		reprime();
+	}
+	persist();
+}
+
+/** Reorder the queue (▲▼), keeping the currently-playing track selected. */
+export function moveQueueItem(from: number, to: number): void {
+	const n = player.queue.length;
+	if (from < 0 || from >= n || to < 0 || to >= n || from === to) return;
+	const q = player.queue.slice();
+	const [item] = q.splice(from, 1);
+	q.splice(to, 0, item);
+	player.queue = q;
+	base = q.slice();
+	if (from === player.index) player.index = to;
+	else if (from < player.index && to >= player.index) player.index -= 1;
+	else if (from > player.index && to <= player.index) player.index += 1;
+	reprime();
+	persist();
 }
 
 // --- Media Session (best-effort) ---
@@ -260,6 +448,35 @@ function setNowPlayingMetadata(track: Metadata) {
 	});
 }
 
+// --- timeline reporting (keeps Plex "recently played" + resume points / viewOffset current) ---
+function reportNow(state: 'playing' | 'paused' | 'stopped') {
+	const t = currentTrack();
+	if (!t?.ratingKey) return;
+	lastTimelineAt = Date.now();
+	void reportTimeline(t.ratingKey, state, player.currentTime * 1000, (player.duration || 0) * 1000);
+}
+function maybeReportTimeline() {
+	if (!player.playing) return;
+	if (Date.now() - lastTimelineAt < 10000) return;
+	reportNow('playing');
+}
+
+// Flush position + a final timeline report when the tab is hidden/closed, so reopening (here or in
+// another Plex client) resumes where you left off.
+let unloadBound = false;
+function registerUnloadFlush() {
+	if (unloadBound || typeof window === 'undefined') return;
+	unloadBound = true;
+	const flush = () => {
+		persist();
+		reportNow('paused');
+	};
+	window.addEventListener('pagehide', flush);
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'hidden') flush();
+	});
+}
+
 // --- persistence ---
 function persist() {
 	writeJSON(KEY, {
@@ -295,15 +512,17 @@ export function restore(): void {
 	player.index = saved.index ?? 0;
 	player.repeat = saved.repeat ?? 'off';
 	player.shuffle = !!saved.shuffle;
-	player.currentTime = saved.time ?? 0;
 	const t = currentTrack();
-	const a = el();
+	// Resume where you left off — prefer the server-side viewOffset if it's further along.
+	const resumeAt = Math.max(saved.time ?? 0, (t?.viewOffset ?? 0) / 1000);
+	player.currentTime = resumeAt;
+	const a = ensure();
 	if (t && a) {
 		const url = streamUrl(t);
 		if (url) {
 			a.src = url;
 			const onMeta = () => {
-				a.currentTime = saved.time ?? 0;
+				a.currentTime = resumeAt;
 				a.removeEventListener('loadedmetadata', onMeta);
 			};
 			a.addEventListener('loadedmetadata', onMeta);

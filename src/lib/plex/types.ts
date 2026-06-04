@@ -87,6 +87,7 @@ export interface Metadata {
 	childCount?: number;
 	addedAt?: number;
 	lastViewedAt?: number;
+	viewOffset?: number; // ms — server-side resume point ("where you left off")
 	playQueueItemID?: number; // present on items returned from /playQueues
 	Media?: { Part?: { key?: string }[] }[];
 }

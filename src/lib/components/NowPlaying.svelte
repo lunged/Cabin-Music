@@ -8,11 +8,16 @@
 		seek,
 		cycleRepeat,
 		toggleShuffle,
-		toggleExpanded
+		toggleExpanded,
+		jumpTo,
+		removeAt,
+		moveQueueItem
 	} from '$lib/stores/player.svelte';
 	import { artUrl } from '$lib/plex/media';
 	import Icon from './Icon.svelte';
 	import Seekbar from './Seekbar.svelte';
+
+	let showQueue = $state(false);
 
 	const track = $derived(currentTrack());
 	const art = $derived(track ? artUrl(track.parentThumb ?? track.thumb, 640) : null);
@@ -25,20 +30,55 @@
 	}
 </script>
 
-<div class="np" role="dialog" aria-label="Now playing">
+<div class="np" class:queueview={showQueue} role="dialog" aria-label="Now playing">
 	<button class="close" onclick={toggleExpanded} aria-label="Close"><Icon name="chevron-down" size={32} /></button>
+	<button class="queuebtn" class:on={showQueue} onclick={() => (showQueue = !showQueue)} aria-label="Queue">
+		<Icon name="queue" size={26} />
+	</button>
 
-	<div class="art">{#if art}<img src={art} alt="" />{/if}</div>
+	{#if showQueue}
+		<div class="queue">
+			<h2>Up Next</h2>
+			<ol>
+				{#each player.queue as t, i (t.playQueueItemID ?? `${t.ratingKey}:${i}`)}
+					<li class:active={i === player.index}>
+						<button class="qmain" onclick={() => jumpTo(i)}>
+							<span class="qidx">
+								{#if i === player.index}<Icon name={player.playing ? 'pause' : 'play'} size={14} />{:else}{i + 1}{/if}
+							</span>
+							<span class="qtext">
+								<span class="qtitle">{t.title}</span>
+								{#if t.grandparentTitle}<span class="qartist">{t.grandparentTitle}</span>{/if}
+							</span>
+						</button>
+						<div class="qactions">
+							<button onclick={() => moveQueueItem(i, i - 1)} disabled={i === 0} aria-label="Move up">
+								<Icon name="arrow-up" size={20} />
+							</button>
+							<button onclick={() => moveQueueItem(i, i + 1)} disabled={i === player.queue.length - 1} aria-label="Move down">
+								<Icon name="arrow-down" size={20} />
+							</button>
+							<button onclick={() => removeAt(i)} aria-label="Remove from queue">
+								<Icon name="x" size={20} />
+							</button>
+						</div>
+					</li>
+				{/each}
+			</ol>
+		</div>
+	{:else}
+		<div class="art">{#if art}<img src={art} alt="" />{/if}</div>
 
-	<div class="info">
-		<h1>{track?.title}</h1>
-		<p>
-			{#if artistHref}<a href={artistHref} onclick={collapse}>{track?.grandparentTitle}</a>{:else}{track?.grandparentTitle ?? ''}{/if}{#if track?.parentTitle}
-				· {track.parentTitle}{/if}
-		</p>
-	</div>
+		<div class="info">
+			<h1>{track?.title}</h1>
+			<p>
+				{#if artistHref}<a href={artistHref} onclick={collapse}>{track?.grandparentTitle}</a>{:else}{track?.grandparentTitle ?? ''}{/if}{#if track?.parentTitle}
+					· {track.parentTitle}{/if}
+			</p>
+		</div>
 
-	<div class="seek"><Seekbar current={player.currentTime} duration={player.duration} onseek={seek} /></div>
+		<div class="seek"><Seekbar current={player.currentTime} duration={player.duration} onseek={seek} /></div>
+	{/if}
 
 	<div class="controls">
 		<button class="sec" class:on={player.shuffle} onclick={toggleShuffle} aria-label="Shuffle">
@@ -69,10 +109,15 @@
 		gap: clamp(1rem, 2.5vh, 2rem);
 		padding: 5.5rem clamp(1.5rem, 4vw, 3rem) clamp(1.5rem, 4vw, 3rem);
 	}
-	.close {
+	/* When the queue is open, content flows from the top and the list scrolls. */
+	.np.queueview {
+		justify-content: flex-start;
+		gap: 1rem;
+	}
+	.close,
+	.queuebtn {
 		position: absolute;
 		top: 1.25rem;
-		left: 1.25rem;
 		width: 64px;
 		height: 64px;
 		border-radius: 50%;
@@ -80,6 +125,16 @@
 		place-items: center;
 		color: var(--text);
 		background: var(--surface);
+	}
+	.close {
+		left: 1.25rem;
+	}
+	.queuebtn {
+		right: 1.25rem;
+		color: var(--text-dim);
+	}
+	.queuebtn.on {
+		color: var(--accent);
 	}
 	.art {
 		width: min(46vh, 440px);
@@ -117,7 +172,93 @@
 	.seek {
 		width: min(640px, 92vw);
 	}
+
+	/* Queue panel */
+	.queue {
+		width: min(640px, 92vw);
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+	.queue h2 {
+		margin: 0 0 0.5rem;
+		font-size: 1.1rem;
+		color: var(--text-dim);
+	}
+	.queue ol {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.queue li {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		border-radius: 10px;
+	}
+	.queue li:nth-child(odd) {
+		background: var(--bg-elevated);
+	}
+	.qmain {
+		flex: 1 1 auto;
+		min-width: 0;
+		display: grid;
+		grid-template-columns: 2rem 1fr;
+		align-items: center;
+		gap: 0.75rem;
+		min-height: 56px;
+		padding: 0.4rem 0.5rem;
+		color: var(--text);
+		text-align: left;
+	}
+	.queue li.active .qmain,
+	.queue li.active .qartist {
+		color: var(--accent);
+	}
+	.qidx {
+		color: var(--text-dim);
+		display: grid;
+		place-items: center;
+		font-variant-numeric: tabular-nums;
+	}
+	.queue li.active .qidx {
+		color: var(--accent);
+	}
+	.qtext {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.qtitle,
+	.qartist {
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.qartist {
+		font-size: 0.85rem;
+		color: var(--text-dim);
+	}
+	.qactions {
+		flex: 0 0 auto;
+		display: flex;
+		align-items: center;
+	}
+	.qactions button {
+		width: 44px;
+		height: 44px;
+		display: grid;
+		place-items: center;
+		color: var(--text-dim);
+		border-radius: 8px;
+	}
+	.qactions button:disabled {
+		opacity: 0.3;
+	}
+
 	.controls {
+		flex: 0 0 auto;
 		display: flex;
 		align-items: center;
 		gap: clamp(1rem, 3vw, 2rem);

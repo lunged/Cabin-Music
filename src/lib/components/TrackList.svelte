@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Metadata } from '$lib/plex/types';
-	import { player, currentTrack, playList } from '$lib/stores/player.svelte';
+	import { player, currentTrack, playList, enqueueLast } from '$lib/stores/player.svelte';
 	import Icon from './Icon.svelte';
 
 	let { tracks, showArtist = false }: { tracks: Metadata[]; showArtist?: boolean } = $props();
@@ -17,7 +17,7 @@
 <ol class="tracks">
 	{#each tracks as t, i (t.ratingKey)}
 		{@const active = t.ratingKey === currentKey}
-		<li>
+		<li class:active>
 			<button class="track" class:active onclick={() => playList(tracks, i)}>
 				<span class="idx">
 					{#if active}
@@ -32,6 +32,9 @@
 				</span>
 				<span class="dur">{fmt(t.duration)}</span>
 			</button>
+			<button class="add" onclick={() => enqueueLast(t)} aria-label="Add to queue">
+				<Icon name="plus" size={18} />
+			</button>
 		</li>
 	{/each}
 </ol>
@@ -42,20 +45,27 @@
 		margin: 0;
 		padding: 0;
 	}
+	li {
+		display: flex;
+		align-items: stretch;
+		gap: 0.25rem;
+		border-radius: 10px;
+	}
+	li:nth-child(odd) {
+		background: var(--bg-elevated);
+	}
 	.track {
+		flex: 1 1 auto;
+		min-width: 0;
 		display: grid;
 		grid-template-columns: 2.5rem 1fr auto;
 		align-items: center;
 		gap: 1rem;
-		width: 100%;
 		min-height: 56px;
 		padding: 0.4rem 0.75rem;
 		border-radius: 10px;
 		color: var(--text);
 		text-align: left;
-	}
-	li:nth-child(odd) .track {
-		background: var(--bg-elevated);
 	}
 	.track.active,
 	.track.active .idx,
@@ -88,5 +98,13 @@
 	.dur {
 		color: var(--text-dim);
 		font-variant-numeric: tabular-nums;
+	}
+	.add {
+		flex: 0 0 auto;
+		width: 48px;
+		display: grid;
+		place-items: center;
+		color: var(--text-dim);
+		border-radius: 10px;
 	}
 </style>
