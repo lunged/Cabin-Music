@@ -169,7 +169,6 @@
 	.close,
 	.queuebtn {
 		position: absolute;
-		top: 1.25rem;
 		width: 64px;
 		height: 64px;
 		border-radius: 50%;
@@ -177,12 +176,15 @@
 		place-items: center;
 		color: var(--text);
 		background: var(--surface);
+		z-index: 1;
 	}
 	.close {
+		top: 1.25rem;
 		left: 1.25rem;
 	}
 	.queuebtn {
-		right: 1.25rem;
+		bottom: 1.25rem;
+		left: 1.25rem;
 		color: var(--text-dim);
 	}
 	.queuebtn.on {
@@ -221,7 +223,7 @@
 
 	/* Queue panel */
 	.queue {
-		width: min(640px, 92vw);
+		width: 100%;
 		flex: 1 1 auto;
 		min-height: 0;
 		overflow-y: auto;
@@ -244,7 +246,7 @@
 		border-radius: 10px;
 	}
 	.queue li:nth-child(odd) {
-		background: var(--bg-elevated);
+		background: var(--stripe);
 	}
 	.qmain {
 		flex: 1 1 auto;
@@ -252,11 +254,12 @@
 		display: grid;
 		grid-template-columns: 2rem 1fr;
 		align-items: center;
-		gap: 0.75rem;
-		min-height: 56px;
-		padding: 0.4rem 0.5rem;
+		gap: 0.85rem;
+		min-height: 68px;
+		padding: 0.65rem 0.75rem;
 		color: var(--text);
 		text-align: left;
+		font-size: 1.05rem;
 	}
 	.queue li.active .qmain,
 	.queue li.active .qartist {
@@ -282,8 +285,11 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
+	.qtitle {
+		font-size: 1.1rem;
+	}
 	.qartist {
-		font-size: 0.85rem;
+		font-size: 0.92rem;
 		color: var(--text-dim);
 	}
 	.qactions {
@@ -292,8 +298,8 @@
 		align-items: center;
 	}
 	.qactions button {
-		width: 44px;
-		height: 44px;
+		width: 52px;
+		height: 52px;
 		display: grid;
 		place-items: center;
 		color: var(--text-dim);

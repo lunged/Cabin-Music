@@ -52,7 +52,7 @@
 		border-radius: 10px;
 	}
 	li:nth-child(odd) {
-		background: var(--bg-elevated);
+		background: var(--stripe);
 	}
 	.track {
 		flex: 1 1 auto;
@@ -61,11 +61,12 @@
 		grid-template-columns: 2.5rem 1fr auto;
 		align-items: center;
 		gap: 1rem;
-		min-height: 56px;
-		padding: 0.4rem 0.75rem;
+		min-height: 68px;
+		padding: 0.7rem 0.9rem;
 		border-radius: 10px;
 		color: var(--text);
 		text-align: left;
+		font-size: 1.05rem;
 	}
 	.track.active,
 	.track.active .idx,
@@ -84,12 +85,13 @@
 		flex-direction: column;
 	}
 	.title {
+		font-size: 1.1rem;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 	.artist {
-		font-size: 0.85rem;
+		font-size: 0.92rem;
 		color: var(--text-dim);
 		white-space: nowrap;
 		overflow: hidden;

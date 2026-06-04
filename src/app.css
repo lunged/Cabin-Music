@@ -14,6 +14,7 @@
 	--bg-elevated: #1f2229;
 	--surface: #262a32; /* cards */
 	--slider-track: #262a32; /* unplayed seek/progress groove */
+	--stripe: rgba(255, 255, 255, 0.04); /* subtle zebra striping for list rows */
 	--text: #f5f6f8;
 	--text-dim: #9aa0aa;
 	--accent: #e31937; /* Tesla red — active/playing ONLY */
@@ -30,6 +31,7 @@
 	--bg-elevated: #ffffff;
 	--surface: #ffffff;
 	--slider-track: #ccd2dc; /* visible grey groove on the white bar */
+	--stripe: rgba(0, 0, 0, 0.045); /* subtle zebra striping for list rows */
 	--text: #16181d;
 	--text-dim: #5b626e;
 	--accent: #e31937;
