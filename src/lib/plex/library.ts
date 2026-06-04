@@ -129,6 +129,12 @@ export async function getPlaylistItems(
 	return page(container(data), start);
 }
 
+/** A single playlist's metadata (for the detail header). */
+export async function getPlaylist(id: string, signal?: AbortSignal): Promise<Metadata | null> {
+	const data = await serverFetch<any>(`/playlists/${id}`, { signal });
+	return metas(container(data))[0] ?? null;
+}
+
 /** Grouped search (artists/albums/tracks/playlists), scoped to a section. */
 export async function search(
 	query: string,
