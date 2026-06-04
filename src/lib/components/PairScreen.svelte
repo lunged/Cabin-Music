@@ -70,6 +70,7 @@
 </script>
 
 <main class="pair">
+	<img class="logo" src="/android-chrome-192x192.png" alt="Cabin Music" width="96" height="96" />
 	<h1>Pair with Plex</h1>
 
 	{#if pairState === 'creating'}
@@ -111,6 +112,13 @@
 		gap: 1.25rem;
 		padding: 6vh 6vw;
 		text-align: center;
+	}
+	.logo {
+		width: 96px;
+		height: 96px;
+		border-radius: 22px;
+		display: block;
+		box-shadow: 0 8px 30px var(--shadow);
 	}
 	h1 {
 		margin: 0;

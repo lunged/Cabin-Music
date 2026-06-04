@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
-	import favicon from '$lib/assets/favicon.svg';
 	import DebugPanel from '$lib/components/DebugPanel.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import ConnectionGate from '$lib/components/ConnectionGate.svelte';
@@ -29,10 +28,6 @@
 		}
 	});
 </script>
-
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
 
 {#if session.status !== 'connected'}
 	<ConnectionGate />
