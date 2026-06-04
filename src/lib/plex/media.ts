@@ -4,6 +4,7 @@
 
 import { plexFetch, type PlexFetchOpts } from './client';
 import { getClientId } from './identifiers';
+import { PLEX_IMG_PATH } from './config';
 import { session } from '$lib/stores/session.svelte';
 import { bitrateFor } from '$lib/stores/quality.svelte';
 import type { Metadata } from './types';
@@ -28,8 +29,8 @@ export async function serverFetch<T>(path: string, opts: ServerOpts = {}): Promi
 	});
 }
 
-/** Build a transcoded artwork URL for an `<img>` (token must be a query param — img can't send headers). */
-export function artUrl(thumb: string | null | undefined, w: number, h: number = w): string | null {
+/** Direct (plex.direct) transcoded artwork URL. Token is a query param — `<img>` can't send headers. */
+export function artUrlDirect(thumb: string | null | undefined, w: number, h: number = w): string | null {
 	const active = session.active;
 	if (!thumb || !active) return null;
 	const params = new URLSearchParams({
@@ -41,6 +42,23 @@ export function artUrl(thumb: string | null | undefined, w: number, h: number = 
 		'X-Plex-Token': active.accessToken
 	});
 	return `${active.baseUri}/photo/:/transcode?${params.toString()}`;
+}
+
+/** Preferred artwork URL: the edge-cached Worker route in production, direct plex.direct in dev. */
+export function artUrl(thumb: string | null | undefined, w: number, h: number = w): string | null {
+	const direct = artUrlDirect(thumb, w, h);
+	if (!direct) return null;
+	return import.meta.env.PROD ? `${PLEX_IMG_PATH}?url=${encodeURIComponent(direct)}` : direct;
+}
+
+/** Ordered artwork sources for graceful fallback in `<Art>`: proxied (cached) → direct → direct retry. */
+export function artCandidates(thumb: string | null | undefined, w: number, h: number = w): string[] {
+	const direct = artUrlDirect(thumb, w, h);
+	if (!direct) return [];
+	const retry = `${direct}&cb=1`; // cache-bust a transient transcode failure
+	return import.meta.env.PROD
+		? [`${PLEX_IMG_PATH}?url=${encodeURIComponent(direct)}`, direct, retry]
+		: [direct, retry];
 }
 
 /** Direct-play stream URL for a track's first media part (token as query param for `<audio>`). */

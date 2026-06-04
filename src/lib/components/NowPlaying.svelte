@@ -13,14 +13,14 @@
 		removeAt,
 		moveQueueItem
 	} from '$lib/stores/player.svelte';
-	import { artUrl } from '$lib/plex/media';
+	import Art from './Art.svelte';
 	import Icon from './Icon.svelte';
 	import Seekbar from './Seekbar.svelte';
 
 	let showQueue = $state(false);
 
 	const track = $derived(currentTrack());
-	const art = $derived(track ? artUrl(track.parentThumb ?? track.thumb, 640) : null);
+	const artThumb = $derived(track?.parentThumb ?? track?.thumb ?? null);
 	const artistHref = $derived(
 		track?.grandparentRatingKey ? `/artist/${track.grandparentRatingKey}` : null
 	);
@@ -67,7 +67,7 @@
 			</ol>
 		</div>
 	{:else}
-		<div class="art">{#if art}<img src={art} alt="" />{/if}</div>
+		<div class="art"><Art thumb={artThumb} w={640} /></div>
 
 		<div class="info">
 			<h1>{track?.title}</h1>
@@ -142,12 +142,6 @@
 		border-radius: 18px;
 		overflow: hidden;
 		background: var(--surface);
-	}
-	.art img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		display: block;
 	}
 	.info {
 		text-align: center;

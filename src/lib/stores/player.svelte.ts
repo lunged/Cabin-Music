@@ -449,7 +449,9 @@ function setNowPlayingMetadata(track: Metadata) {
 	}
 	if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || typeof MediaMetadata === 'undefined')
 		return;
-	const art = artUrl(track.parentThumb ?? track.thumb ?? track.grandparentThumb, 300);
+	let art = artUrl(track.parentThumb ?? track.thumb ?? track.grandparentThumb, 300);
+	// MediaSession needs an absolute URL; artUrl is a same-origin /img path in production.
+	if (art && art.startsWith('/') && typeof location !== 'undefined') art = location.origin + art;
 	navigator.mediaSession.metadata = new MediaMetadata({
 		title: track.title,
 		artist,

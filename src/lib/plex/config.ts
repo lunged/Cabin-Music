@@ -28,5 +28,10 @@ export const MAX_LOG = 30;
 
 /** Same-origin Worker proxy for server (plex.direct) JSON calls — used in production only, so the
  *  deployed app doesn't depend on a Plex CORS-allowlist setting (recent Plex versions removed it).
- *  Audio + artwork still stream directly (no CORS needed for <audio>/<img>). */
+ *  Audio still streams directly (no CORS needed for <audio>). */
 export const PLEX_PROXY_PATH = '/plex';
+
+/** Same-origin Worker route for artwork (production only): proxies + edge-caches /photo transcodes so
+ *  repeat views are served from Cloudflare (fast) and the home server does far fewer transcodes. The
+ *  client falls back to the direct plex.direct URL if a proxied image fails. */
+export const PLEX_IMG_PATH = '/img';

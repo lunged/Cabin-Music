@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { player, currentTrack, toggle, next, prev, seek, toggleExpanded } from '$lib/stores/player.svelte';
-	import { artUrl } from '$lib/plex/media';
+	import Art from './Art.svelte';
 	import Icon from './Icon.svelte';
 	import Seekbar from './Seekbar.svelte';
 	import NowPlaying from './NowPlaying.svelte';
 
 	const track = $derived(currentTrack());
-	const art = $derived(track ? artUrl(track.parentThumb ?? track.thumb, 140) : null);
+	const artThumb = $derived(track?.parentThumb ?? track?.thumb ?? null);
 	const artistName = $derived(track?.grandparentTitle ?? track?.parentTitle ?? '');
 	const artistHref = $derived(track?.grandparentRatingKey ? `/artist/${track.grandparentRatingKey}` : null);
 
@@ -19,7 +19,7 @@
 	<div class="bar">
 		<div class="meta">
 			<button class="art" onclick={toggleExpanded} aria-label="Open now playing">
-				{#if art}<img src={art} alt="" />{/if}
+				<Art thumb={artThumb} w={140} />
 			</button>
 			<div class="txt">
 				<button class="title" onclick={toggleExpanded}>{track.title}</button>
@@ -75,12 +75,6 @@
 		overflow: hidden;
 		background: var(--surface);
 		padding: 0;
-	}
-	.art img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		display: block;
 	}
 	.txt {
 		display: flex;

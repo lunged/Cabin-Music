@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Album-art tile that fills its container (square; round for artists). When `onActivate` is
 	// provided it renders as a button (e.g. a "Mixes for you" tile that starts radio); otherwise a link.
-	import { artUrl } from '$lib/plex/media';
+	import Art from './Art.svelte';
 	import type { Metadata } from '$lib/plex/types';
 
 	let {
@@ -13,13 +13,11 @@
 
 	const isArtist = $derived(item.type === 'artist');
 
-	const art = $derived.by(() => {
-		const thumb =
-			item.type === 'track'
-				? (item.parentThumb ?? item.thumb ?? item.grandparentThumb)
-				: (item.thumb ?? item.composite ?? item.art ?? item.parentThumb ?? item.grandparentThumb);
-		return artUrl(thumb, size * 2);
-	});
+	const thumb = $derived(
+		item.type === 'track'
+			? (item.parentThumb ?? item.thumb ?? item.grandparentThumb)
+			: (item.thumb ?? item.composite ?? item.art ?? item.parentThumb ?? item.grandparentThumb)
+	);
 
 	const subtitle = $derived.by(() => {
 		if (subtitleOverride !== undefined) return subtitleOverride;
@@ -55,11 +53,7 @@
 
 {#snippet body()}
 	<div class="art" class:round={isArtist}>
-		{#if art}
-			<img src={art} alt="" loading="lazy" decoding="async" />
-		{:else}
-			<div class="ph"></div>
-		{/if}
+		<Art {thumb} w={size * 2} />
 	</div>
 	<div class="meta" class:center={isArtist}>
 		<span class="title">{item.title}</span>
@@ -92,13 +86,6 @@
 	}
 	.art.round {
 		border-radius: 50%;
-	}
-	.art img,
-	.ph {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		display: block;
 	}
 	.meta {
 		display: flex;
