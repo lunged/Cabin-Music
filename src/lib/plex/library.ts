@@ -149,6 +149,19 @@ export async function getItemsByKey(
 	return metas(container(data));
 }
 
+/** Find an artist by (approximate) name within a section — used to resolve a "{Artist} Mix" to its
+ *  seed artist for correct art + artist-radio playback. Prefers an exact case-insensitive match. */
+export async function findArtist(
+	name: string,
+	sectionId: string,
+	signal?: AbortSignal
+): Promise<Metadata | null> {
+	const hubs = await search(name, sectionId, 8, signal);
+	const artists = hubs.flatMap((h) => h.items).filter((i) => i.type === 'artist');
+	const lower = name.toLowerCase();
+	return artists.find((a) => a.title.toLowerCase() === lower) ?? artists[0] ?? null;
+}
+
 /** Grouped search (artists/albums/tracks/playlists), scoped to a section. */
 export async function search(
 	query: string,

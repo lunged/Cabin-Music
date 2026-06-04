@@ -1,9 +1,8 @@
 <script lang="ts">
 	// Home — Plex-style hub rows for the active library, in the user's preferred order.
 	import { activeSection } from '$lib/stores/library.svelte';
-	import { getHubs, getPlaylists, getItemsByKey } from '$lib/plex/library';
-	import { createPlayQueueFromPlaylist, createPlayQueue, stationUri } from '$lib/plex/playback';
-	import { playMixItem, playList } from '$lib/stores/player.svelte';
+	import { getHubs, getPlaylists, findArtist } from '$lib/plex/library';
+	import { playMixItem, playArtistRadio } from '$lib/stores/player.svelte';
 	import { logEvent } from '$lib/stores/debug.svelte';
 	import HubRow from '$lib/components/HubRow.svelte';
 	import type { Hub, Metadata } from '$lib/plex/types';
@@ -23,8 +22,9 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
-	// Tracks behind each mix (keyed by ratingKey), fetched during enrichment and reused for playback.
-	const mixTracks = new Map<string, Metadata[]>();
+	// Resolved seed-artist ratingKey per mix → card shows the right artist image, and tapping plays
+	// that artist's radio (exactly like the artist page's "Artist Mix").
+	const mixArtistKey = new Map<string, string>();
 
 	const section = $derived(activeSection());
 
@@ -90,118 +90,56 @@
 		return `${diff} year${diff === 1 ? '' : 's'} ago · ${m.year}`;
 	}
 
-	// "Mixes for you" items have no art or artist reference of their own. Resolve each mix's tracks
-	// (which carry grandparentThumb = artist image + grandparentTitle = artist name) the documented
-	// way: a play queue from its playlistID, else a play queue from its key-as-uri, else a plain GET
-	// of the item content. Those tracks drive the card art/artists AND playback; we log which method
-	// each mix resolved through so the diagnostics panel makes failures obvious.
+	// "Mixes for you" are "{Artist} Mix" items with no usable art/artist reference of their own.
+	// Resolve the seed artist by name (title minus " Mix") — that gives the correct artist image AND
+	// the key to play the mix as that artist's radio, identical to the artist page's "Artist Mix".
 	function mixId(m: Metadata): string {
 		return m.ratingKey ?? m.key ?? m.title;
 	}
-	function playableTracks(items: Metadata[]): Metadata[] {
-		return items.filter((t) => !!t.Media?.[0]?.Part?.[0]?.key);
-	}
 
-	async function fetchMixViaGet(m: Metadata, signal?: AbortSignal): Promise<Metadata[]> {
-		const sources: string[] = [];
-		if (m.key) sources.push(m.key);
-		if (m.ratingKey) {
-			sources.push(`/playlists/${m.ratingKey}/items`);
-			sources.push(`/library/metadata/${m.ratingKey}/children`);
+	async function resolveMixArtist(
+		m: Metadata,
+		sectionId: string,
+		signal?: AbortSignal
+	): Promise<Metadata | null> {
+		const name = m.title.replace(/\s+mix$/i, '').trim();
+		if (!name) return null;
+		try {
+			return await findArtist(name, sectionId, signal);
+		} catch {
+			return null;
 		}
-		let artOnly: Metadata[] = [];
-		for (const path of sources) {
-			try {
-				const items = (await getItemsByKey(path, { size: 100 }, signal)).filter(
-					(t) => t.type === 'track' || !!t.grandparentTitle
-				);
-				if (!items.length) continue;
-				if (playableTracks(items).length) return items;
-				if (!artOnly.length) artOnly = items;
-			} catch {
-				/* next source */
-			}
-		}
-		return artOnly;
-	}
-
-	async function resolveMixTracks(m: Metadata, signal?: AbortSignal): Promise<Metadata[]> {
-		// 1) Documented: play queue from a playlist/mix ID. The PQ response carries playable tracks.
-		if (m.ratingKey) {
-			try {
-				const q = await createPlayQueueFromPlaylist(m.ratingKey, {}, signal);
-				if (playableTracks(q.items).length) {
-					logEvent(`mix "${m.title}": ${q.items.length} via playlistID`);
-					return q.items;
-				}
-			} catch (e) {
-				logEvent(`mix "${m.title}" playlistID failed: ${(e as Error)?.message ?? e}`);
-			}
-		}
-		// 2) Play queue from the item's key as a library uri (stations / generic items).
-		if (m.key) {
-			try {
-				const q = await createPlayQueue(stationUri(m.key), {}, signal);
-				if (playableTracks(q.items).length) {
-					logEvent(`mix "${m.title}": ${q.items.length} via uri`);
-					return q.items;
-				}
-			} catch (e) {
-				logEvent(`mix "${m.title}" uri failed: ${(e as Error)?.message ?? e}`);
-			}
-		}
-		// 3) Plain GET of the item content / playlist items / children.
-		const got = await fetchMixViaGet(m, signal);
-		if (got.length) {
-			logEvent(`mix "${m.title}": ${got.length} via GET (${playableTracks(got).length} playable)`);
-			return got;
-		}
-		logEvent(`mix "${m.title}": UNRESOLVED type=${m.type} key=${m.key ?? '?'} rk=${m.ratingKey ?? '?'}`);
-		return [];
-	}
-
-	function mixArt(m: Metadata, tracks: Metadata[]): Metadata {
-		const seedName = m.title.replace(/\s+mix$/i, '').trim().toLowerCase();
-		const seed = tracks.find((t) => (t.grandparentTitle ?? '').toLowerCase() === seedName) ?? tracks[0];
-		const seedArtist = (seed.grandparentTitle ?? '').toLowerCase();
-		const artists: string[] = [];
-		for (const t of tracks) {
-			const a = t.grandparentTitle?.trim();
-			if (a && a.toLowerCase() !== seedArtist && !artists.some((x) => x.toLowerCase() === a.toLowerCase()))
-				artists.push(a);
-			if (artists.length >= 6) break;
-		}
-		return {
-			...m,
-			thumb: seed.grandparentThumb ?? seed.thumb ?? m.thumb,
-			grandparentRatingKey: seed.grandparentRatingKey ?? m.grandparentRatingKey,
-			summary: artists.join(', ')
-		} satisfies Metadata;
 	}
 
 	async function playMix(m: Metadata) {
-		let tracks = mixTracks.get(mixId(m)) ?? [];
-		if (!playableTracks(tracks).length) {
-			tracks = await resolveMixTracks(m);
-			if (tracks.length) mixTracks.set(mixId(m), tracks);
+		let key = mixArtistKey.get(mixId(m));
+		if (!key) {
+			const sec = section;
+			const artist = sec ? await resolveMixArtist(m, sec.key) : null;
+			if (artist) {
+				key = artist.ratingKey;
+				mixArtistKey.set(mixId(m), key);
+			}
 		}
-		const playable = playableTracks(tracks);
-		if (playable.length) {
-			playList(playable);
+		if (key) {
+			void playArtistRadio(key); // continuous artist radio — same as the artist page
 			return;
 		}
-		void playMixItem(m); // last resort: artist radio station
+		void playMixItem(m); // fallback: best-effort station resolution from the item itself
 	}
 
-	async function enrichMixes(mixRow: Row, signal: AbortSignal) {
+	async function enrichMixes(mixRow: Row, sectionId: string, signal: AbortSignal) {
 		const enriched = await Promise.all(
-			mixRow.items.map(async (m, i) => {
-				if (i >= 8) return m; // bound play-queue creations on home load
+			mixRow.items.map(async (m) => {
 				try {
-					const tracks = await resolveMixTracks(m, signal);
-					if (signal.aborted || !tracks.length) return m;
-					mixTracks.set(mixId(m), tracks);
-					return mixArt(m, tracks);
+					const artist = await resolveMixArtist(m, sectionId, signal);
+					if (signal.aborted || !artist) return m;
+					mixArtistKey.set(mixId(m), artist.ratingKey);
+					return {
+						...m,
+						thumb: artist.thumb ?? m.thumb,
+						grandparentRatingKey: artist.ratingKey
+					} satisfies Metadata;
 				} catch {
 					return m;
 				}
@@ -209,7 +147,7 @@
 		);
 		if (signal.aborted) return;
 		rows = rows.map((r) => (r.key === mixRow.key ? { ...r, items: enriched } : r));
-		logEvent(`mixes enriched: ${enriched.filter((m) => m.thumb).length}/${enriched.length} got art`);
+		logEvent(`mixes: resolved ${enriched.filter((m) => mixArtistKey.has(mixId(m))).length}/${enriched.length} seed artists`);
 	}
 
 	async function load(sectionId: string, sectionTitle: string, signal: AbortSignal) {
@@ -232,12 +170,7 @@
 					items: hub.items,
 					variant: kind === 'mixes' ? ('mix' as const) : undefined,
 					tileSize: kind === 'mixes' ? 220 : undefined,
-					subtitleFor:
-						kind === 'mixes'
-							? (m: Metadata) => m.summary ?? ''
-							: kind === 'onThisDay'
-								? yearsAgo
-								: undefined,
+					subtitleFor: kind === 'onThisDay' ? yearsAgo : undefined,
 					onItem: kind === 'mixes' ? (m: Metadata) => void playMix(m) : undefined
 				}));
 
@@ -257,7 +190,7 @@
 
 			// Fill in mix art + included-artists after first paint (each mix needs its tracks fetched).
 			const mixRow = rows.find((r) => r.variant === 'mix');
-			if (mixRow) void enrichMixes(mixRow, signal);
+			if (mixRow) void enrichMixes(mixRow, sectionId, signal);
 		} catch (e) {
 			if (!signal.aborted) error = e instanceof Error ? e.message : String(e);
 		} finally {
