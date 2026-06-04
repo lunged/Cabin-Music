@@ -10,6 +10,7 @@
 	} from '$lib/stores/quality.svelte';
 	import { invalidatePrefetch } from '$lib/stores/player.svelte';
 	import { session } from '$lib/stores/session.svelte';
+	import { toggleDebug } from '$lib/stores/debug.svelte';
 	import { signOut } from '$lib/plex/auth';
 
 	const themes: ThemeChoice[] = ['auto', 'light', 'dark'];
@@ -72,6 +73,12 @@
 		</dl>
 		<button class="danger" onclick={signOut}>Sign out</button>
 	</div>
+
+	<div class="group">
+		<h2>Diagnostics</h2>
+		<p class="dim">Connection status, recent network calls, and errors — handy if something will not load.</p>
+		<button class="diag" onclick={toggleDebug}>Open diagnostics</button>
+	</div>
 </section>
 
 <style>
@@ -126,7 +133,8 @@
 		margin: 0;
 		word-break: break-word;
 	}
-	.danger {
+	.danger,
+	.diag {
 		min-height: var(--tap-min);
 		padding: 0 2rem;
 		border-radius: var(--radius);
@@ -134,6 +142,9 @@
 		color: var(--accent);
 		font-size: 1.05rem;
 		font-weight: 600;
+	}
+	.diag {
+		color: var(--text);
 	}
 	.dim {
 		margin: 0 0 0.75rem;

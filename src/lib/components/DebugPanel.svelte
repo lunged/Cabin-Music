@@ -1,44 +1,8 @@
 <script lang="ts">
-	// The in-car diagnostic channel (no DevTools). Long-press the top-left corner to toggle.
+	// The in-car diagnostic channel (no DevTools). Opened from Settings → Diagnostics.
 	import { debug, toggleDebug } from '$lib/stores/debug.svelte';
 	import { session } from '$lib/stores/session.svelte';
 	import { signOut } from '$lib/plex/auth';
-
-	const HOLD_MS = 600;
-	const SLOP = 10;
-
-	let holding = $state(false);
-	let pressTimer: ReturnType<typeof setTimeout> | null = null;
-	let startX = 0;
-	let startY = 0;
-
-	function clearPress() {
-		if (pressTimer) {
-			clearTimeout(pressTimer);
-			pressTimer = null;
-		}
-		holding = false;
-	}
-
-	function onPointerDown(e: PointerEvent) {
-		startX = e.clientX;
-		startY = e.clientY;
-		holding = true;
-		try {
-			(e.currentTarget as Element).setPointerCapture(e.pointerId);
-		} catch {
-			/* pointer capture can throw on synthetic/edge pointers — non-fatal */
-		}
-		pressTimer = setTimeout(() => {
-			clearPress();
-			toggleDebug();
-		}, HOLD_MS);
-	}
-
-	function onPointerMove(e: PointerEvent) {
-		if (!pressTimer) return;
-		if (Math.hypot(e.clientX - startX, e.clientY - startY) > SLOP) clearPress();
-	}
 
 	function maskedToken(t: string | null): string {
 		if (!t) return '—';
@@ -47,18 +11,6 @@
 
 	const origin = typeof location !== 'undefined' ? location.origin : '';
 </script>
-
-<!-- Hidden long-press hit zone -->
-<div
-	class="corner"
-	class:holding
-	onpointerdown={onPointerDown}
-	onpointermove={onPointerMove}
-	onpointerup={clearPress}
-	onpointercancel={clearPress}
-	onpointerleave={clearPress}
-	aria-hidden="true"
-></div>
 
 {#if debug.visible}
 	<div class="panel" role="dialog" aria-label="Cabin diagnostics">
@@ -111,35 +63,6 @@
 {/if}
 
 <style>
-	.corner {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 64px;
-		height: 64px;
-		z-index: 9998;
-		touch-action: none;
-	}
-	.corner::after {
-		content: '';
-		position: absolute;
-		top: 12px;
-		left: 12px;
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		background: var(--accent);
-		opacity: 0;
-		transform: scale(0.3);
-		transition:
-			opacity 0.6s linear,
-			transform 0.6s linear;
-	}
-	.corner.holding::after {
-		opacity: 0.75;
-		transform: scale(1);
-	}
-
 	.panel {
 		position: fixed;
 		inset: 0 auto 0 0;
