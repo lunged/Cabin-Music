@@ -89,37 +89,58 @@
 		return `${diff} year${diff === 1 ? '' : 's'} ago · ${m.year}`;
 	}
 
-	// "Mixes for you" items are playlist-type with no art or artist reference of their own. Their own
-	// `key` returns the mix's tracks — each track carries the artist image (grandparentThumb) + name
-	// (grandparentTitle). We use those to show the seed-artist image + the included-artists list, and
-	// keep the tracks to play the mix on tap.
+	// "Mixes for you" items are playlist-type with no art or artist reference of their own. Their
+	// tracks carry the artist image (grandparentThumb) + name (grandparentTitle), which we use for the
+	// card AND to play the mix. Different servers expose the tracks under different endpoints, so try
+	// the item's own key first, then the playlist-items and children endpoints, preferring a source
+	// whose tracks are actually playable (have a media part).
+	function playableTracks(items: Metadata[]): Metadata[] {
+		return items.filter((t) => !!t.Media?.[0]?.Part?.[0]?.key);
+	}
+
+	async function fetchMixItems(m: Metadata, signal?: AbortSignal): Promise<Metadata[]> {
+		const sources: string[] = [];
+		if (m.key) sources.push(m.key);
+		if (m.ratingKey) {
+			sources.push(`/playlists/${m.ratingKey}/items`);
+			sources.push(`/library/metadata/${m.ratingKey}/children`);
+		}
+		let artOnly: Metadata[] = [];
+		for (const path of sources) {
+			try {
+				const items = (await getItemsByKey(path, { size: 100 }, signal)).filter(
+					(t) => t.type === 'track' || !!t.grandparentTitle
+				);
+				if (!items.length) continue;
+				if (playableTracks(items).length) return items; // playable source → best
+				if (!artOnly.length) artOnly = items; // keep for art if nothing playable turns up
+			} catch {
+				/* try the next source */
+			}
+		}
+		return artOnly;
+	}
+
 	async function playMix(m: Metadata) {
-		const cached = mixTracks.get(m.ratingKey);
-		if (cached?.length) {
-			playList(cached);
+		let tracks = mixTracks.get(m.ratingKey) ?? [];
+		if (!playableTracks(tracks).length) {
+			tracks = await fetchMixItems(m);
+			if (tracks.length) mixTracks.set(m.ratingKey, tracks);
+		}
+		const playable = playableTracks(tracks);
+		logEvent(`mix play: "${m.title}" key=${m.key ?? '?'} → ${playable.length}/${tracks.length} playable`);
+		if (playable.length) {
+			playList(playable);
 			return;
 		}
-		try {
-			if (m.key) {
-				const tracks = await getItemsByKey(m.key, { size: 100 });
-				if (tracks.length) {
-					mixTracks.set(m.ratingKey, tracks);
-					playList(tracks);
-					return;
-				}
-			}
-		} catch {
-			/* fall through to the station attempt */
-		}
-		void playMixItem(m);
+		void playMixItem(m); // last resort: try a radio station
 	}
 
 	async function enrichMixes(mixRow: Row, signal: AbortSignal) {
 		const enriched = await Promise.all(
 			mixRow.items.map(async (m) => {
 				try {
-					if (!m.key) return m;
-					const tracks = await getItemsByKey(m.key, { size: 60 }, signal);
+					const tracks = await fetchMixItems(m, signal);
 					if (signal.aborted || !tracks.length) return m;
 					mixTracks.set(m.ratingKey, tracks);
 					const seedName = m.title.replace(/\s+mix$/i, '').trim().toLowerCase();
