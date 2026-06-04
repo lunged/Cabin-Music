@@ -24,6 +24,7 @@
 	const artistHref = $derived(
 		track?.grandparentRatingKey ? `/artist/${track.grandparentRatingKey}` : null
 	);
+	const albumHref = $derived(track?.parentRatingKey ? `/album/${track.parentRatingKey}` : null);
 
 	function collapse() {
 		player.expanded = false;
@@ -123,10 +124,7 @@
 
 		<div class="info">
 			<h1>{track?.title}</h1>
-			<p>
-				{#if artistHref}<a href={artistHref} onclick={collapse}>{track?.grandparentTitle}</a>{:else}{track?.grandparentTitle ?? ''}{/if}{#if track?.parentTitle}
-					· {track.parentTitle}{/if}
-			</p>
+			<p>{#if artistHref}<a class="artist" href={artistHref} onclick={collapse}>{track?.grandparentTitle}</a>{:else}<span class="artist">{track?.grandparentTitle ?? ''}</span>{/if}{#if track?.parentTitle}<span class="sep">·</span>{#if albumHref}<a class="album" href={albumHref} onclick={collapse}>{track.parentTitle}</a>{:else}<span class="album">{track.parentTitle}</span>{/if}{/if}</p>
 		</div>
 
 		<div class="seek"><Seekbar current={player.currentTime} duration={player.duration} onseek={seek} /></div>
@@ -213,9 +211,17 @@
 		font-size: clamp(1rem, 2vw, 1.3rem);
 	}
 	.info a {
+		text-decoration: none;
+	}
+	.info .artist {
 		color: var(--text);
-		text-decoration: underline;
-		text-underline-offset: 3px;
+	}
+	.info .album {
+		color: var(--text-dim);
+	}
+	.info .sep {
+		margin: 0 0.55rem;
+		color: var(--text-dim);
 	}
 	.seek {
 		width: min(640px, 92vw);
