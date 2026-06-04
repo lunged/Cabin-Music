@@ -1,6 +1,6 @@
 // Plex PIN auth flow (spec §5). All calls go through plexFetch (debug-logged, masked).
 
-import { PLEX_AUTH_APP, PLEX_PRODUCT, POLL_INTERVAL_MS } from './config';
+import { PLEX_AUTH_APP, PLEX_PRODUCT, PLEX_VERSION, POLL_INTERVAL_MS } from './config';
 import { getClientId } from './identifiers';
 import { plexFetch } from './client';
 import { TokenStore, ConnStore, AccountStore } from './storage';
@@ -8,12 +8,12 @@ import type { Pin } from './types';
 import { session, reset } from '$lib/stores/session.svelte';
 import { logEvent } from '$lib/stores/debug.svelte';
 
-/** Create a PIN. Returns the id (for polling) and the short user-facing code.
- *  We deliberately DON'T request a "strong" PIN: strong returns a long (~25-char) code that's
- *  fine for the QR/app.plex.tv link but impossible to type. A normal PIN is a 4-char code that
- *  works in the QR flow AND is typeable at plex.tv/link — better for the car's no-keyboard goal. */
+/** Create a "strong" PIN. The app.plex.tv/auth deep-link (which the QR/link points at) REQUIRES a
+ *  strong PIN — a non-strong PIN's short code only works for manual entry at plex.tv/link and the
+ *  deep link rejects it ("We were unable to complete this request"). The strong code is long and
+ *  untypeable, so pairing is QR/link-only (no manual code entry) — fine for the no-keyboard car. */
 export async function createPin(signal?: AbortSignal): Promise<Pin> {
-	return plexFetch<Pin>('/pins', { method: 'POST', signal });
+	return plexFetch<Pin>('/pins', { method: 'POST', query: { strong: true }, signal });
 }
 
 /** Poll a PIN's current state. The client identifier header must match createPin (plexFetch handles it). */
@@ -24,12 +24,15 @@ export async function getPin(id: number, signal?: AbortSignal): Promise<Pin> {
 /** The URL the user opens on their phone to authorize. clientID MUST equal X-Plex-Client-Identifier.
  *  No `forwardUrl` — pairing happens on the phone; the car's poll loop detects authorization. */
 export function buildAuthUrl(code: string): string {
-	const parts = [
-		`clientID=${encodeURIComponent(getClientId())}`,
-		`code=${encodeURIComponent(code)}`,
-		`context[device][product]=${encodeURIComponent(PLEX_PRODUCT)}`
-	];
-	return `${PLEX_AUTH_APP}#?${parts.join('&')}`;
+	const params = new URLSearchParams({
+		clientID: getClientId(),
+		code,
+		'context[device][product]': PLEX_PRODUCT,
+		'context[device][deviceName]': PLEX_PRODUCT,
+		'context[device][platform]': 'Web',
+		'context[device][version]': PLEX_VERSION
+	});
+	return `${PLEX_AUTH_APP}#?${params.toString()}`;
 }
 
 /** Resolves/clears early when `signal` aborts. */

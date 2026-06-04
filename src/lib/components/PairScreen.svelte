@@ -1,8 +1,8 @@
 <script lang="ts">
-	// PIN pairing. Creates a code, shows it + a lazily-rendered QR, and polls until authorized.
+	// PIN pairing. Creates a (strong) PIN, shows a QR of the Plex auth deep-link, and polls until
+	// authorized. The user scans with their phone (already signed in to Plex) — no typing needed.
 	import { createPin, buildAuthUrl, pollPin, persistToken } from '$lib/plex/auth';
 	import { bootSession } from '$lib/plex/discovery';
-	import { PLEX_LINK_FALLBACK } from '$lib/plex/config';
 	import { setStatus } from '$lib/stores/session.svelte';
 	import type { Pin } from '$lib/plex/types';
 
@@ -15,7 +15,6 @@
 	let restartKey = $state(0);
 
 	const authUrl = $derived(pin ? buildAuthUrl(pin.code) : '');
-	const linkLabel = PLEX_LINK_FALLBACK.replace(/^https?:\/\//, '');
 
 	async function makeQr(url: string) {
 		qrDataUrl = null;
@@ -29,7 +28,7 @@
 				color: { dark: '#16181d', light: '#ffffff' }
 			});
 		} catch {
-			qrDataUrl = null; // degrade gracefully to code + link
+			qrDataUrl = null; // degrade gracefully to the tappable link
 		}
 	}
 
@@ -81,25 +80,21 @@
 		{#if errorMsg}<p class="errmsg">{errorMsg}</p>{/if}
 		<button class="primary" onclick={retry}>Try again</button>
 	{:else if pairState === 'expired'}
-		<p class="dim">That code expired.</p>
+		<p class="dim">This pairing request expired.</p>
 		<button class="primary" onclick={retry}>Get a new code</button>
 	{:else if pin}
 		<div class="grid">
 			<div class="qrwrap">
 				{#if qrDataUrl}
-					<img class="qr" src={qrDataUrl} alt="Scan with your phone to authorize" width="320" height="320" />
+					<img class="qr" src={qrDataUrl} alt="Scan with your phone to sign in to Plex" width="320" height="320" />
 				{:else}
 					<div class="qr placeholder" aria-hidden="true"></div>
 				{/if}
 			</div>
 
 			<div class="how">
-				<p class="step">
-					On your phone, scan the code — or open
-					<a href={authUrl} target="_blank" rel="noreferrer">app.plex.tv</a>.
-				</p>
-				<p class="or">or visit <strong>{linkLabel}</strong> and enter:</p>
-				<div class="code" aria-label="Pairing code">{pin.code}</div>
+				<p class="step"><strong>Scan with your phone</strong> to sign in to Plex and authorize Cabin&nbsp;Music.</p>
+				<p class="or">Can't scan? <a href={authUrl} target="_blank" rel="noreferrer">Open the sign-in page here</a>.</p>
 				<p class="waiting"><span class="dot"></span> Waiting for you to authorize…</p>
 			</div>
 		</div>
@@ -135,8 +130,8 @@
 		flex: 0 0 auto;
 	}
 	.qr {
-		width: clamp(200px, 26vw, 320px);
-		height: clamp(200px, 26vw, 320px);
+		width: clamp(220px, 28vw, 340px);
+		height: clamp(220px, 28vw, 340px);
 		border-radius: 16px;
 		background: #fff;
 		display: block;
@@ -150,23 +145,18 @@
 		text-align: left;
 	}
 	.step {
-		margin: 0 0 0.5rem;
-		font-size: clamp(1rem, 1.6vw, 1.25rem);
+		margin: 0 0 0.75rem;
+		font-size: clamp(1.05rem, 1.8vw, 1.4rem);
+		line-height: 1.45;
 	}
-	.step a {
+	.how a {
 		color: var(--text);
 		text-decoration: underline;
+		text-underline-offset: 3px;
 	}
 	.or {
-		margin: 0 0 0.5rem;
+		margin: 0 0 1.25rem;
 		color: var(--text-dim);
-	}
-	.code {
-		font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-		font-size: clamp(2.5rem, 7vw, 4.5rem);
-		font-weight: 700;
-		letter-spacing: 0.25em;
-		padding: 0.5rem 0 0.75rem;
 	}
 	.waiting {
 		display: flex;
