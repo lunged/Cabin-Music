@@ -135,6 +135,20 @@ export async function getPlaylist(id: string, signal?: AbortSignal): Promise<Met
 	return metas(container(data))[0] ?? null;
 }
 
+/** Fetch the tracks behind an item's own `key` (e.g. a mix/station/playlist content endpoint).
+ *  Used to enrich "Mixes for you" tiles (artist image + included artists) and to play them. */
+export async function getItemsByKey(
+	key: string,
+	opts: { size?: number } = {},
+	signal?: AbortSignal
+): Promise<Metadata[]> {
+	const data = await serverFetch<any>(key, {
+		query: { 'X-Plex-Container-Start': 0, 'X-Plex-Container-Size': opts.size ?? 60 },
+		signal
+	});
+	return metas(container(data));
+}
+
 /** Grouped search (artists/albums/tracks/playlists), scoped to a section. */
 export async function search(
 	query: string,

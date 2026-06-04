@@ -1,8 +1,8 @@
 <script lang="ts">
 	// Home — Plex-style hub rows for the active library, in the user's preferred order.
 	import { activeSection } from '$lib/stores/library.svelte';
-	import { getHubs, getPlaylists } from '$lib/plex/library';
-	import { playMixItem } from '$lib/stores/player.svelte';
+	import { getHubs, getPlaylists, getItemsByKey } from '$lib/plex/library';
+	import { playMixItem, playList } from '$lib/stores/player.svelte';
 	import { logEvent } from '$lib/stores/debug.svelte';
 	import HubRow from '$lib/components/HubRow.svelte';
 	import type { Hub, Metadata } from '$lib/plex/types';
@@ -12,6 +12,8 @@
 		key: string;
 		title: string;
 		items: Metadata[];
+		variant?: 'tile' | 'mix';
+		tileSize?: number;
 		subtitleFor?: (m: Metadata) => string;
 		onItem?: (m: Metadata) => void;
 	};
@@ -19,6 +21,9 @@
 	let rows = $state<Row[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+
+	// Tracks behind each mix (keyed by ratingKey), fetched during enrichment and reused for playback.
+	const mixTracks = new Map<string, Metadata[]>();
 
 	const section = $derived(activeSection());
 
@@ -84,14 +89,68 @@
 		return `${diff} year${diff === 1 ? '' : 's'} ago · ${m.year}`;
 	}
 
-	// "Mixes for you" are per-artist radio with no art of their own — use the artist's image.
-	function withArtistArt(m: Metadata): Metadata {
-		const artistKey =
-			m.key?.match(/\/library\/metadata\/(\d+)/)?.[1] ??
-			m.grandparentRatingKey ??
-			m.parentRatingKey ??
-			(m.type === 'artist' ? m.ratingKey : undefined);
-		return artistKey ? { ...m, thumb: `/library/metadata/${artistKey}/thumb` } : m;
+	// "Mixes for you" items are playlist-type with no art or artist reference of their own. Their own
+	// `key` returns the mix's tracks — each track carries the artist image (grandparentThumb) + name
+	// (grandparentTitle). We use those to show the seed-artist image + the included-artists list, and
+	// keep the tracks to play the mix on tap.
+	async function playMix(m: Metadata) {
+		const cached = mixTracks.get(m.ratingKey);
+		if (cached?.length) {
+			playList(cached);
+			return;
+		}
+		try {
+			if (m.key) {
+				const tracks = await getItemsByKey(m.key, { size: 100 });
+				if (tracks.length) {
+					mixTracks.set(m.ratingKey, tracks);
+					playList(tracks);
+					return;
+				}
+			}
+		} catch {
+			/* fall through to the station attempt */
+		}
+		void playMixItem(m);
+	}
+
+	async function enrichMixes(mixRow: Row, signal: AbortSignal) {
+		const enriched = await Promise.all(
+			mixRow.items.map(async (m) => {
+				try {
+					if (!m.key) return m;
+					const tracks = await getItemsByKey(m.key, { size: 60 }, signal);
+					if (signal.aborted || !tracks.length) return m;
+					mixTracks.set(m.ratingKey, tracks);
+					const seedName = m.title.replace(/\s+mix$/i, '').trim().toLowerCase();
+					const seed =
+						tracks.find((t) => (t.grandparentTitle ?? '').toLowerCase() === seedName) ?? tracks[0];
+					const seedArtist = (seed.grandparentTitle ?? '').toLowerCase();
+					const artists: string[] = [];
+					for (const t of tracks) {
+						const a = t.grandparentTitle?.trim();
+						if (
+							a &&
+							a.toLowerCase() !== seedArtist &&
+							!artists.some((x) => x.toLowerCase() === a.toLowerCase())
+						)
+							artists.push(a);
+						if (artists.length >= 6) break;
+					}
+					return {
+						...m,
+						thumb: seed.grandparentThumb ?? seed.thumb ?? m.thumb,
+						grandparentRatingKey: seed.grandparentRatingKey ?? m.grandparentRatingKey,
+						summary: artists.join(', ')
+					} satisfies Metadata;
+				} catch {
+					return m;
+				}
+			})
+		);
+		if (signal.aborted) return;
+		rows = rows.map((r) => (r.key === mixRow.key ? { ...r, items: enriched } : r));
+		logEvent(`mixes enriched: ${enriched.filter((m) => m.thumb).length}/${enriched.length} got art`);
 	}
 
 	async function load(sectionId: string, sectionTitle: string, signal: AbortSignal) {
@@ -114,9 +173,16 @@
 				.map(({ kind, hub }) => ({
 					key: hub.hubIdentifier,
 					title: labelFor(kind, hub, sectionTitle),
-					items: kind === 'mixes' ? hub.items.map(withArtistArt) : hub.items,
-					subtitleFor: kind === 'onThisDay' ? yearsAgo : undefined,
-					onItem: kind === 'mixes' ? (m: Metadata) => void playMixItem(m) : undefined
+					items: hub.items,
+					variant: kind === 'mixes' ? ('mix' as const) : undefined,
+					tileSize: kind === 'mixes' ? 220 : undefined,
+					subtitleFor:
+						kind === 'mixes'
+							? (m: Metadata) => m.summary ?? ''
+							: kind === 'onThisDay'
+								? yearsAgo
+								: undefined,
+					onItem: kind === 'mixes' ? (m: Metadata) => void playMix(m) : undefined
 				}));
 
 			const hasPlaylists = hubs.some((h) => kindOf(h) === 'playlists');
@@ -132,6 +198,10 @@
 			}
 
 			rows = built.filter((r) => r.items.length > 0);
+
+			// Fill in mix art + included-artists after first paint (each mix needs its tracks fetched).
+			const mixRow = rows.find((r) => r.variant === 'mix');
+			if (mixRow) void enrichMixes(mixRow, signal);
 		} catch (e) {
 			if (!signal.aborted) error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -151,7 +221,14 @@
 		<p class="dim">Your server didn't return any home rows for this library yet.</p>
 	{:else}
 		{#each rows as row (row.key)}
-			<HubRow title={row.title} items={row.items} subtitleFor={row.subtitleFor} onItem={row.onItem} />
+			<HubRow
+				title={row.title}
+				items={row.items}
+				variant={row.variant}
+				tileSize={row.tileSize}
+				subtitleFor={row.subtitleFor}
+				onItem={row.onItem}
+			/>
 		{/each}
 	{/if}
 </section>

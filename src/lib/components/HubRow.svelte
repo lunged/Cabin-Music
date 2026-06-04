@@ -1,17 +1,20 @@
 <script lang="ts">
 	import ArtTile from './ArtTile.svelte';
+	import MixCard from './MixCard.svelte';
 	import type { Metadata } from '$lib/plex/types';
 
 	let {
 		title,
 		items,
 		tileSize = 168,
+		variant = 'tile',
 		subtitleFor,
 		onItem
 	}: {
 		title: string;
 		items: Metadata[];
 		tileSize?: number;
+		variant?: 'tile' | 'mix';
 		subtitleFor?: (item: Metadata) => string;
 		onItem?: (item: Metadata) => void;
 	} = $props();
@@ -22,12 +25,21 @@
 	<div class="row">
 		{#each items as item (item.ratingKey ?? item.key ?? item.title)}
 			<div class="slot" style="width: {tileSize}px">
-				<ArtTile
-					{item}
-					size={tileSize}
-					subtitle={subtitleFor ? subtitleFor(item) : undefined}
-					onActivate={onItem ? () => onItem(item) : undefined}
-				/>
+				{#if variant === 'mix'}
+					<MixCard
+						{item}
+						size={tileSize}
+						subtitle={subtitleFor ? subtitleFor(item) : undefined}
+						onActivate={onItem ? () => onItem(item) : undefined}
+					/>
+				{:else}
+					<ArtTile
+						{item}
+						size={tileSize}
+						subtitle={subtitleFor ? subtitleFor(item) : undefined}
+						onActivate={onItem ? () => onItem(item) : undefined}
+					/>
+				{/if}
 			</div>
 		{/each}
 	</div>

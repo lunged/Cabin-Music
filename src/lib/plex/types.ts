@@ -85,6 +85,7 @@ export interface Metadata {
 	duration?: number; // ms
 	leafCount?: number; // playlist/album track count
 	childCount?: number;
+	summary?: string; // description; Cabin also reuses this to carry a mix's included-artists list
 	addedAt?: number;
 	lastViewedAt?: number;
 	viewOffset?: number; // ms — server-side resume point ("where you left off")
