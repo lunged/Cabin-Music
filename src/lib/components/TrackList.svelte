@@ -8,6 +8,15 @@
 
 	const currentKey = $derived(currentTrack()?.ratingKey);
 
+	// Brief "added to queue" confirmation per row (plus → check, then back).
+	let added = $state<Record<string, boolean>>({});
+	function addToQueue(t: Metadata) {
+		enqueueLast(t);
+		const rk = t.ratingKey;
+		added[rk] = true;
+		setTimeout(() => (added[rk] = false), 1300);
+	}
+
 	function fmt(ms?: number): string {
 		if (!ms) return '';
 		const s = Math.round(ms / 1000);
@@ -41,8 +50,13 @@
 			>
 				<Icon name={isLoved(t) ? 'heart-filled' : 'heart'} size={20} />
 			</button>
-			<button class="add" onclick={() => enqueueLast(t)} aria-label="Add to queue">
-				<Icon name="plus" size={18} />
+			<button
+				class="add"
+				class:added={added[t.ratingKey]}
+				onclick={() => addToQueue(t)}
+				aria-label="Add to queue"
+			>
+				<Icon name={added[t.ratingKey] ? 'check' : 'plus'} size={20} />
 			</button>
 		</li>
 	{/each}
@@ -110,7 +124,6 @@
 		color: var(--text-dim);
 		font-variant-numeric: tabular-nums;
 	}
-	.add,
 	.love {
 		flex: 0 0 auto;
 		width: 48px;
@@ -121,5 +134,28 @@
 	}
 	.love.on {
 		color: var(--accent);
+	}
+	/* Add-to-queue: a circular tap target, set well apart from the heart so it's hard to mis-tap. */
+	.add {
+		flex: 0 0 auto;
+		align-self: center;
+		width: 52px;
+		height: 52px;
+		margin-left: 1rem;
+		display: grid;
+		place-items: center;
+		border-radius: 50%;
+		background: var(--surface);
+		color: var(--text);
+		transition:
+			background 0.15s ease,
+			color 0.15s ease,
+			transform 0.15s ease;
+	}
+	/* Brief confirmation flash when a track is added to the queue. */
+	.add.added {
+		background: var(--accent);
+		color: #fff;
+		transform: scale(1.08);
 	}
 </style>
