@@ -1,10 +1,11 @@
 <script lang="ts">
 	// Home — Plex-style hub rows for the active library, in the user's preferred order.
 	import { activeSection } from '$lib/stores/library.svelte';
-	import { getHubs, getPlaylists, findArtist, getLovedTracks } from '$lib/plex/library';
+	import { getHubs, getPlaylists, findArtist, getLovedTracks, getAll, TYPE } from '$lib/plex/library';
 	import { playMixItem, playArtistRadio, playList } from '$lib/stores/player.svelte';
 	import { logEvent } from '$lib/stores/debug.svelte';
 	import HubRow from '$lib/components/HubRow.svelte';
+	import Icon from '$lib/components/Icon.svelte';
 	import type { Hub, Metadata } from '$lib/plex/types';
 
 	type Kind = 'mixes' | 'recentlyPlayed' | 'recentlyAdded' | 'onThisDay' | 'playlists' | 'other';
@@ -150,6 +151,22 @@
 		logEvent(`mixes: resolved ${enriched.filter((m) => mixArtistKey.has(mixId(m))).length}/${enriched.length} seed artists`);
 	}
 
+	// "Shuffle all" — play a random sample of the whole library (one-tap "just play something").
+	let shuffling = $state(false);
+	async function shuffleLibrary() {
+		const sec = section;
+		if (!sec || shuffling) return;
+		shuffling = true;
+		try {
+			const res = await getAll(sec.key, { type: TYPE.track, sort: 'random', size: 200 });
+			if (res.items.length) playList(res.items, 0, { shuffle: true });
+		} catch (e) {
+			logEvent(`shuffle library failed: ${(e as Error)?.message ?? e}`);
+		} finally {
+			shuffling = false;
+		}
+	}
+
 	// "Loved" row — tracks the user has hearted (userRating 10). Loaded after first paint and inserted
 	// right after the Mixes row; tapping a tile plays the loved set from there.
 	async function loadLoved(sectionId: string, signal: AbortSignal) {
@@ -222,7 +239,12 @@
 </script>
 
 <section class="page home">
-	<h1>{section?.title ?? 'Home'}</h1>
+	<div class="home-head">
+		<h1>{section?.title ?? 'Home'}</h1>
+		<button class="shuffle-all" onclick={shuffleLibrary} disabled={shuffling || !section}>
+			<Icon name="shuffle" size={18} /> Shuffle all
+		</button>
+	</div>
 
 	{#if loading && rows.length === 0}
 		<div class="center"><div class="spinner" aria-hidden="true"></div></div>
@@ -245,6 +267,35 @@
 </section>
 
 <style>
+	.home-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-wrap: wrap;
+		margin-bottom: 1.25rem;
+	}
+	.home-head h1 {
+		margin: 0;
+		font-size: clamp(1.6rem, 3.2vw, 2.5rem);
+		font-weight: 700;
+		letter-spacing: -0.02em;
+	}
+	.shuffle-all {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-height: 48px;
+		padding: 0 1.4rem;
+		border-radius: 999px;
+		background: var(--surface);
+		color: var(--text);
+		font-size: 1rem;
+		font-weight: 600;
+	}
+	.shuffle-all:disabled {
+		opacity: 0.5;
+	}
 	.center {
 		display: grid;
 		place-items: center;
