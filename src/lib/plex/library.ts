@@ -76,6 +76,29 @@ export async function getAll(
 	return page(container(data), start);
 }
 
+/** Loved tracks (userRating = 10 / 5 stars) in a section — for the Home "Loved" row. */
+export async function getLovedTracks(
+	sectionId: string,
+	opts: { size?: number } = {},
+	signal?: AbortSignal
+): Promise<PageResult> {
+	const { size = 24 } = opts;
+	const data = await serverFetch<any>(`/library/sections/${sectionId}/all`, {
+		query: {
+			type: TYPE.track,
+			userRating: 10, // loved = 5 stars
+			sort: 'lastViewedAt:desc',
+			'X-Plex-Container-Start': 0,
+			'X-Plex-Container-Size': size
+		},
+		signal
+	});
+	const res = page(container(data), 0);
+	// Safety net in case a server ignores the filter — only show genuinely-loved tracks.
+	res.items = res.items.filter((t) => (t.userRating ?? 0) >= 9.5);
+	return res;
+}
+
 /** Children of an item: artist → albums, album → tracks. */
 export async function getChildren(
 	ratingKey: string,

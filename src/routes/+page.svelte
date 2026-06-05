@@ -1,8 +1,8 @@
 <script lang="ts">
 	// Home — Plex-style hub rows for the active library, in the user's preferred order.
 	import { activeSection } from '$lib/stores/library.svelte';
-	import { getHubs, getPlaylists, findArtist } from '$lib/plex/library';
-	import { playMixItem, playArtistRadio } from '$lib/stores/player.svelte';
+	import { getHubs, getPlaylists, findArtist, getLovedTracks } from '$lib/plex/library';
+	import { playMixItem, playArtistRadio, playList } from '$lib/stores/player.svelte';
 	import { logEvent } from '$lib/stores/debug.svelte';
 	import HubRow from '$lib/components/HubRow.svelte';
 	import type { Hub, Metadata } from '$lib/plex/types';
@@ -150,6 +150,27 @@
 		logEvent(`mixes: resolved ${enriched.filter((m) => mixArtistKey.has(mixId(m))).length}/${enriched.length} seed artists`);
 	}
 
+	// "Loved" row — tracks the user has hearted (userRating 10). Loaded after first paint and inserted
+	// right after the Mixes row; tapping a tile plays the loved set from there.
+	async function loadLoved(sectionId: string, signal: AbortSignal) {
+		try {
+			const loved = await getLovedTracks(sectionId, { size: 24 }, signal);
+			if (signal.aborted || !loved.items.length) return;
+			const items = loved.items;
+			const row: Row = {
+				key: 'loved',
+				title: 'Loved',
+				items,
+				onItem: (t: Metadata) => playList(items, Math.max(0, items.indexOf(t)))
+			};
+			const mixIdx = rows.findIndex((r) => r.variant === 'mix');
+			const at = mixIdx >= 0 ? mixIdx + 1 : 0;
+			rows = [...rows.slice(0, at), row, ...rows.slice(at)];
+		} catch {
+			/* the Loved row is best-effort */
+		}
+	}
+
 	async function load(sectionId: string, sectionTitle: string, signal: AbortSignal) {
 		loading = true;
 		error = null;
@@ -191,6 +212,7 @@
 			// Fill in mix art + included-artists after first paint (each mix needs its tracks fetched).
 			const mixRow = rows.find((r) => r.variant === 'mix');
 			if (mixRow) void enrichMixes(mixRow, sectionId, signal);
+			void loadLoved(sectionId, signal);
 		} catch (e) {
 			if (!signal.aborted) error = e instanceof Error ? e.message : String(e);
 		} finally {
