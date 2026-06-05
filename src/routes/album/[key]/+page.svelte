@@ -65,10 +65,12 @@
 			<div class="info">
 				<p class="kind">Album</p>
 				<h1>{header.title}</h1>
-				<p class="dim sub">
-					{#if header.parentRatingKey}<a class="alink" href={`/artist/${header.parentRatingKey}`}>{header.parentTitle}</a
-						>{:else if header.parentTitle}{header.parentTitle}{/if}{#if metaTail} · {metaTail}{/if}
-				</p>
+				{#if header.parentRatingKey}
+					<a class="artist-link" href={`/artist/${header.parentRatingKey}`}>{header.parentTitle}</a>
+				{:else if header.parentTitle}
+					<span class="artist-link">{header.parentTitle}</span>
+				{/if}
+				{#if metaTail}<p class="meta dim">{metaTail}</p>{/if}
 				<div class="actions">
 					<button class="play-btn" onclick={() => playList(tracks, 0)} disabled={!tracks.length}>
 						<Icon name="play" size={20} /> Play
@@ -132,19 +134,29 @@
 		font-weight: 700;
 		letter-spacing: -0.02em;
 	}
-	.sub {
-		margin: 0;
-	}
-	.alink {
+	/* Artist on its own line as a big, car-friendly tap target — clear of the Play button. */
+	.artist-link {
+		display: inline-flex;
+		align-items: center;
+		min-height: 48px;
+		margin: 0.35rem 0 0 -0.7rem;
+		padding: 0 0.7rem;
+		border-radius: 10px;
+		font-size: clamp(1.15rem, 2.2vw, 1.5rem);
 		color: var(--text);
-		text-decoration: underline;
-		text-underline-offset: 3px;
+	}
+	a.artist-link {
+		text-decoration: none;
+	}
+	.meta {
+		margin: 0.35rem 0 0;
+		font-size: 1.05rem;
 	}
 	.actions {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.75rem;
-		margin-top: 1.25rem;
+		margin-top: 1.75rem;
 	}
 	.play-btn,
 	.shuffle-btn {
