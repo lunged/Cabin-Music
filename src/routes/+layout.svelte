@@ -2,7 +2,6 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import DebugPanel from '$lib/components/DebugPanel.svelte';
-	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import ConnectionGate from '$lib/components/ConnectionGate.svelte';
 	import AppShell from '$lib/components/AppShell.svelte';
 	import LibraryChooser from '$lib/components/LibraryChooser.svelte';
@@ -46,7 +45,6 @@
 	</AppShell>
 {/if}
 
-<ThemeToggle />
 <DebugPanel />
 
 <style>
