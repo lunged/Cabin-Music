@@ -42,21 +42,16 @@ export function currentTrack(): Metadata | null {
 
 // --- module-level, non-reactive ---
 let base: Metadata[] = []; // original (pre-shuffle) order
-// Two audio elements ping-pong so the NEXT track is buffered ahead of time (near-gapless): one
-// plays while the other preloads, and on advance we swap to the already-buffered element.
-let players: HTMLAudioElement[] = [];
-let activeIdx = 0;
-let prefetchIdx = -1; // queue index the INACTIVE element is currently primed with
+// A SINGLE <audio> element. (We previously ping-ponged two elements for near-gapless transitions, but
+// the car's native media widget binds to one element and loses its session — timeline, prev/next,
+// pause — the moment we swap. One element keeps the widget working, at the cost of a small gap
+// between tracks.)
+let audio: HTMLAudioElement | null = null;
 let restored = false;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let candidates: string[] = []; // ordered playback URLs for the current track (quality + fallbacks)
 let candidateIdx = 0;
 let lastTimelineAt = 0;
-
-/** The preferred (first) playback URL for a track, honoring the quality setting. */
-function primaryUrl(t: Metadata): string | null {
-	return playbackCandidates(t)[0] ?? null;
-}
 
 function rand(n: number): number {
 	return Math.floor(Math.random() * n);
@@ -70,103 +65,49 @@ function shuffled<T>(arr: T[]): T[] {
 	return a;
 }
 
-function attach(a: HTMLAudioElement) {
-	// Events from the inactive (preloading) element are ignored — only the active one drives state.
+function el(): HTMLAudioElement | null {
+	if (typeof Audio === 'undefined') return null;
+	if (audio) return audio;
+	const a = new Audio();
+	a.preload = 'auto';
 	a.addEventListener('timeupdate', () => {
-		if (a !== active()) return;
 		player.currentTime = a.currentTime;
 		persistSoon();
 		maybeReportTimeline();
-		maybePrime();
 	});
 	a.addEventListener('durationchange', () => {
-		if (a !== active()) return;
 		player.duration = Number.isFinite(a.duration) ? a.duration : 0;
 		syncMediaPosition();
 	});
 	a.addEventListener('play', () => {
-		if (a !== active()) return;
 		player.playing = true;
 		reportNow('playing');
 		syncMediaPlaybackState();
 		syncMediaPosition();
 	});
 	a.addEventListener('pause', () => {
-		if (a !== active()) return;
 		player.playing = false;
 		reportNow('paused');
 		syncMediaPlaybackState();
 		syncMediaPosition();
 	});
-	a.addEventListener('ended', () => {
-		if (a !== active()) return;
-		next(true);
-	});
-	a.addEventListener('error', () => {
-		if (a !== active()) return;
-		onError();
-	});
-}
-
-function ensure(): HTMLAudioElement | null {
-	if (typeof Audio === 'undefined') return null;
-	if (players.length) return players[activeIdx];
-	players = [new Audio(), new Audio()];
-	for (const a of players) {
-		a.preload = 'auto';
-		attach(a);
-	}
+	a.addEventListener('ended', () => next(true));
+	a.addEventListener('error', onError);
+	audio = a;
 	setupMediaSessionHandlers();
 	registerUnloadFlush();
-	return players[activeIdx];
+	return audio;
 }
-function el(): HTMLAudioElement | null {
-	return ensure();
-}
+/** The current audio element (single element; kept as a helper so callers read clearly). */
 function active(): HTMLAudioElement | null {
-	return players[activeIdx] ?? null;
+	return audio;
 }
-function inactive(): HTMLAudioElement | null {
-	return players.length ? players[activeIdx ^ 1] : null;
-}
-
-/** Index of the track to preload next (respecting repeat); -1 if there's nothing to prime. */
-function nextIndexFor(i: number): number {
-	if (player.repeat === 'one') return -1; // repeat-one just replays via seek(0)
-	const n = i + 1;
-	if (n < player.queue.length) return n;
-	if (player.repeat === 'all' && player.queue.length) return 0;
-	return -1;
-}
-
-/** Preload the given queue index into the INACTIVE element so the next advance is seamless. */
-function prime(i: number) {
-	prefetchIdx = -1;
-	if (i < 0 || i >= player.queue.length || i === player.index) return;
-	const t = player.queue[i];
-	const url = t ? primaryUrl(t) : null;
-	const pre = inactive();
-	if (!url || !pre) return;
-	if (pre.src !== url) {
-		pre.src = url;
-		pre.load();
-	}
-	prefetchIdx = i;
-}
-/** Prime the next track only as the current one nears its end (avoids doubling bandwidth all song). */
-function maybePrime() {
-	if (prefetchIdx !== -1) return;
-	const dur = player.duration;
-	if (!dur || dur - player.currentTime > 30) return;
-	prime(nextIndexFor(player.index));
-}
-/** Invalidate the preloaded track after a queue change; maybePrime() re-primes near the next end. */
-function reprime() {
-	prefetchIdx = -1;
-}
+/** No-op now — single-element playback has nothing to prefetch. Kept so queue-mutation callers and
+ *  the quality-change hook stay simple. */
+function reprime() {}
 
 function load(track: Metadata, autoplay: boolean) {
-	const a = ensure();
+	const a = el();
 	if (!a) return;
 	candidates = playbackCandidates(track);
 	candidateIdx = 0;
@@ -198,28 +139,6 @@ function onError() {
 }
 
 function goTo(i: number) {
-	// Gapless path: the inactive element is already buffered with track i → swap to it.
-	if (i === prefetchIdx && inactive()?.src) {
-		const old = active();
-		if (old) old.pause();
-		activeIdx ^= 1;
-		prefetchIdx = -1;
-		player.index = i;
-		const a = active();
-		const t = currentTrack();
-		if (a && t) {
-			// The primed element holds candidates[0]; record the chain so onError can fall back.
-			candidates = playbackCandidates(t);
-			candidateIdx = 0;
-			a.currentTime = 0;
-			player.currentTime = 0;
-			player.duration = Number.isFinite(a.duration) ? a.duration : 0;
-			setNowPlayingMetadata(t);
-			void a.play().catch((e: unknown) => logEvent(`play blocked: ${(e as Error)?.name ?? e}`));
-		}
-		persist();
-		return;
-	}
 	player.index = i;
 	const t = currentTrack();
 	if (t) load(t, true);
@@ -383,7 +302,6 @@ export function removeAt(i: number): void {
 		player.queue = [];
 		base = [];
 		player.index = -1;
-		prefetchIdx = -1;
 		const a = active();
 		if (a) {
 			a.pause();
@@ -572,7 +490,7 @@ export function restore(): void {
 	// Resume where you left off — prefer the server-side viewOffset if it's further along.
 	const resumeAt = Math.max(saved.time ?? 0, (t?.viewOffset ?? 0) / 1000);
 	player.currentTime = resumeAt;
-	const a = ensure();
+	const a = el();
 	if (t && a) {
 		candidates = playbackCandidates(t);
 		candidateIdx = 0;
