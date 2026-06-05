@@ -29,6 +29,15 @@ export async function serverFetch<T>(path: string, opts: ServerOpts = {}): Promi
 	});
 }
 
+/** Love/unlove (rate) an item. Plex userRating is 0–10; 10 = loved, -1 clears. GET keeps it a
+ *  preflight-free "simple" request through the proxy. */
+export async function rateItem(ratingKey: string, rating: number, signal?: AbortSignal): Promise<void> {
+	await serverFetch('/:/rate', {
+		query: { identifier: 'com.plexapp.plugins.library', key: ratingKey, rating },
+		signal
+	});
+}
+
 /** Direct (plex.direct) transcoded artwork URL. Token is a query param — `<img>` can't send headers. */
 export function artUrlDirect(thumb: string | null | undefined, w: number, h: number = w): string | null {
 	const active = session.active;

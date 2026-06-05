@@ -17,6 +17,7 @@
 	import Icon from './Icon.svelte';
 	import Seekbar from './Seekbar.svelte';
 	import { artUrl } from '$lib/plex/media';
+	import { isLoved, toggleLove } from '$lib/stores/ratings.svelte';
 
 	let showQueue = $state(false);
 
@@ -27,6 +28,7 @@
 		track?.grandparentRatingKey ? `/artist/${track.grandparentRatingKey}` : null
 	);
 	const albumHref = $derived(track?.parentRatingKey ? `/album/${track.parentRatingKey}` : null);
+	const loved = $derived(isLoved(track));
 
 	function collapse() {
 		player.expanded = false;
@@ -137,6 +139,9 @@
 	{/if}
 
 	<div class="controls">
+		<button class="sec" class:on={loved} onclick={() => toggleLove(track)} aria-label={loved ? 'Unlove' : 'Love'}>
+			<Icon name={loved ? 'heart-filled' : 'heart'} size={26} />
+		</button>
 		<button class="sec" class:on={player.shuffle} onclick={toggleShuffle} aria-label="Shuffle">
 			<Icon name="shuffle" size={26} />
 		</button>
