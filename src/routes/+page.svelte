@@ -167,8 +167,8 @@
 		}
 	}
 
-	// "Loved" row — tracks the user has hearted (userRating 10). Loaded after first paint and inserted
-	// right after the Mixes row; tapping a tile plays the loved set from there.
+	// "Loved" row — tracks the user has hearted (userRating 10). Loaded after first paint and appended
+	// at the bottom of the page; tapping a tile plays the loved set from there.
 	async function loadLoved(sectionId: string, signal: AbortSignal) {
 		try {
 			const loved = await getLovedTracks(sectionId, { size: 24 }, signal);
@@ -180,9 +180,8 @@
 				items,
 				onItem: (t: Metadata) => playList(items, Math.max(0, items.indexOf(t)))
 			};
-			const mixIdx = rows.findIndex((r) => r.variant === 'mix');
-			const at = mixIdx >= 0 ? mixIdx + 1 : 0;
-			rows = [...rows.slice(0, at), row, ...rows.slice(at)];
+			rows = [...rows, row]; // append at the bottom of the page
+
 		} catch {
 			/* the Loved row is best-effort */
 		}
