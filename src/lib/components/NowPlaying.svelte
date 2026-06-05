@@ -11,7 +11,8 @@
 		toggleExpanded,
 		jumpTo,
 		removeAt,
-		moveQueueItem
+		moveQueueItem,
+		playTrackRadio
 	} from '$lib/stores/player.svelte';
 	import Art from './Art.svelte';
 	import Icon from './Icon.svelte';
@@ -95,6 +96,13 @@
 	<button class="close" onclick={toggleExpanded} aria-label="Close"><Icon name="chevron-down" size={32} /></button>
 	<button class="queuebtn" class:on={showQueue} onclick={() => (showQueue = !showQueue)} aria-label="Queue">
 		<Icon name="queue" size={26} />
+	</button>
+	<button
+		class="radiobtn"
+		onclick={() => track && playTrackRadio(track.ratingKey)}
+		aria-label="Start radio from this song"
+	>
+		<Icon name="radio" size={26} />
 	</button>
 
 	{#if showQueue}
@@ -194,7 +202,8 @@
 		gap: 1rem;
 	}
 	.close,
-	.queuebtn {
+	.queuebtn,
+	.radiobtn {
 		position: absolute;
 		width: 64px;
 		height: 64px;
@@ -216,6 +225,11 @@
 	}
 	.queuebtn.on {
 		color: var(--accent);
+	}
+	.radiobtn {
+		bottom: 1.25rem;
+		right: 1.25rem;
+		color: var(--text-dim);
 	}
 	.art {
 		width: min(46vh, 440px);

@@ -115,6 +115,20 @@ export async function getChildren(
 	return page(container(data), start);
 }
 
+/** Sonically-similar items for a ratingKey (artist → similar artists, track → similar tracks).
+ *  Requires Plex Pass + sonic analysis. `/library/metadata/{ratingKey}/nearest`. */
+export async function getSonicallySimilar(
+	ratingKey: string,
+	opts: { limit?: number; maxDistance?: number } = {},
+	signal?: AbortSignal
+): Promise<Metadata[]> {
+	const { limit = 12, maxDistance } = opts;
+	const query: Record<string, number> = { limit };
+	if (maxDistance != null) query.maxDistance = maxDistance;
+	const data = await serverFetch<any>(`/library/metadata/${ratingKey}/nearest`, { query, signal });
+	return metas(container(data));
+}
+
 /** A single item's metadata (for detail headers). */
 export async function getMetadata(ratingKey: string, signal?: AbortSignal): Promise<Metadata | null> {
 	const data = await serverFetch<any>(`/library/metadata/${ratingKey}`, { signal });

@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getMetadata, getChildren } from '$lib/plex/library';
+	import { getMetadata, getChildren, getSonicallySimilar } from '$lib/plex/library';
 	import { artUrl } from '$lib/plex/media';
 	import { shuffleArtist, playArtistRadio } from '$lib/stores/player.svelte';
 	import ArtTile from '$lib/components/ArtTile.svelte';
+	import HubRow from '$lib/components/HubRow.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import type { Metadata } from '$lib/plex/types';
 
 	let header = $state<Metadata | null>(null);
 	let albums = $state<Metadata[]>([]);
+	let similar = $state<Metadata[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -28,14 +30,17 @@
 		error = null;
 		header = null;
 		albums = [];
+		similar = [];
 		try {
-			const [meta, children] = await Promise.all([
+			const [meta, children, sim] = await Promise.all([
 				getMetadata(k, signal),
-				getChildren(k, { size: 200, sort: 'year:desc' }, signal)
+				getChildren(k, { size: 200, sort: 'year:desc' }, signal),
+				getSonicallySimilar(k, { limit: 16 }, signal).catch(() => [] as Metadata[])
 			]);
 			if (signal.aborted) return;
 			header = meta;
 			albums = children.items;
+			similar = sim.filter((s) => s.type === 'artist');
 		} catch (e) {
 			if (!signal.aborted) error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -76,6 +81,10 @@
 				<div class="cell"><ArtTile item={a} size={156} /></div>
 			{/each}
 		</div>
+
+		{#if similar.length}
+			<div class="similar"><HubRow title="Similar artists" items={similar} /></div>
+		{/if}
 	{/if}
 </section>
 
@@ -160,6 +169,9 @@
 	.cell {
 		content-visibility: auto;
 		contain-intrinsic-size: auto 156px;
+	}
+	.similar {
+		margin-top: 2rem;
 	}
 	.center {
 		display: grid;

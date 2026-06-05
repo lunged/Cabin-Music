@@ -569,6 +569,27 @@ export async function playArtistRadio(artistKey: string): Promise<void> {
 	}
 }
 
+/** "Track Radio" — a sonic station seeded by a track (same station mechanism as artist radio). */
+export async function playTrackRadio(trackKey: string): Promise<void> {
+	try {
+		const stationKey = await getArtistStationKey(trackKey);
+		if (!stationKey) {
+			logEvent(`no track radio for ${trackKey}`);
+			return;
+		}
+		const q = await createPlayQueue(stationUri(stationKey), { continuous: true });
+		if (!q.items.length) {
+			logEvent('track radio: empty queue');
+			return;
+		}
+		playList(q.items, 0, {
+			radio: { playQueueID: q.playQueueID, lastItemID: q.lastItemID, artistKey: trackKey }
+		});
+	} catch (e) {
+		logEvent(`track radio failed: ${(e as Error)?.message ?? e}`);
+	}
+}
+
 /** Shuffle an artist's whole catalog (server-built shuffled play queue). */
 export async function shuffleArtist(artistKey: string): Promise<void> {
 	try {
