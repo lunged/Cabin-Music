@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Metadata } from '$lib/plex/types';
 	import { player, currentTrack, playList, enqueueLast } from '$lib/stores/player.svelte';
+	import { isLoved, toggleLove } from '$lib/stores/ratings.svelte';
 	import Icon from './Icon.svelte';
 
 	let { tracks, showArtist = false }: { tracks: Metadata[]; showArtist?: boolean } = $props();
@@ -31,6 +32,14 @@
 					{#if showArtist && t.grandparentTitle}<span class="artist">{t.grandparentTitle}</span>{/if}
 				</span>
 				<span class="dur">{fmt(t.duration)}</span>
+			</button>
+			<button
+				class="love"
+				class:on={isLoved(t)}
+				onclick={() => toggleLove(t)}
+				aria-label={isLoved(t) ? 'Unlove' : 'Love'}
+			>
+				<Icon name={isLoved(t) ? 'heart-filled' : 'heart'} size={20} />
 			</button>
 			<button class="add" onclick={() => enqueueLast(t)} aria-label="Add to queue">
 				<Icon name="plus" size={18} />
@@ -101,12 +110,16 @@
 		color: var(--text-dim);
 		font-variant-numeric: tabular-nums;
 	}
-	.add {
+	.add,
+	.love {
 		flex: 0 0 auto;
 		width: 48px;
 		display: grid;
 		place-items: center;
 		color: var(--text-dim);
 		border-radius: 10px;
+	}
+	.love.on {
+		color: var(--accent);
 	}
 </style>
