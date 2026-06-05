@@ -82,16 +82,21 @@ function attach(a: HTMLAudioElement) {
 	a.addEventListener('durationchange', () => {
 		if (a !== active()) return;
 		player.duration = Number.isFinite(a.duration) ? a.duration : 0;
+		syncMediaPosition();
 	});
 	a.addEventListener('play', () => {
 		if (a !== active()) return;
 		player.playing = true;
 		reportNow('playing');
+		syncMediaPlaybackState();
+		syncMediaPosition();
 	});
 	a.addEventListener('pause', () => {
 		if (a !== active()) return;
 		player.playing = false;
 		reportNow('paused');
+		syncMediaPlaybackState();
+		syncMediaPosition();
 	});
 	a.addEventListener('ended', () => {
 		if (a !== active()) return;
@@ -301,6 +306,7 @@ export function seek(t: number): void {
 		a.currentTime = t;
 		player.currentTime = t;
 		reportNow(player.playing ? 'playing' : 'paused');
+		syncMediaPosition();
 	}
 }
 
@@ -423,19 +429,56 @@ export function moveQueueItem(from: number, to: number): void {
 }
 
 // --- Media Session (best-effort) ---
+// Drives the car's native now-playing widget (title/art) AND its transport buttons. Each handler is
+// registered independently so one unsupported action can't drop the rest, and the set is re-asserted
+// per track (some platforms clear handlers when the audio source changes).
 function setupMediaSessionHandlers() {
 	if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 	const ms = navigator.mediaSession;
+	const set = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
+		try {
+			ms.setActionHandler(action, handler);
+		} catch {
+			/* this action is unsupported on this platform — skip just this one */
+		}
+	};
+	set('play', () => toggle());
+	set('pause', () => toggle());
+	set('stop', () => {
+		const a = el();
+		if (a) a.pause();
+	});
+	set('previoustrack', () => prev());
+	set('nexttrack', () => next());
+	set('seekto', (d: MediaSessionActionDetails) => {
+		if (typeof d.seekTime === 'number') seek(d.seekTime);
+	});
+}
+
+/** Publish play/pause state so the widget shows + enables the right controls. */
+function syncMediaPlaybackState() {
+	if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 	try {
-		ms.setActionHandler('play', () => toggle());
-		ms.setActionHandler('pause', () => toggle());
-		ms.setActionHandler('nexttrack', () => next());
-		ms.setActionHandler('previoustrack', () => prev());
-		ms.setActionHandler('seekto', (d: MediaSessionActionDetails) => {
-			if (typeof d.seekTime === 'number') seek(d.seekTime);
-		});
+		navigator.mediaSession.playbackState = player.playing ? 'playing' : 'paused';
 	} catch {
-		/* some actions unsupported — ignore */
+		/* ignore */
+	}
+}
+
+/** Publish duration + position so the widget shows a scrubber (and treats us as a rich session). */
+function syncMediaPosition() {
+	if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+	const ms = navigator.mediaSession;
+	if (typeof ms.setPositionState !== 'function') return;
+	try {
+		const dur = player.duration;
+		if (dur > 0 && Number.isFinite(dur)) {
+			ms.setPositionState({ duration: dur, position: Math.min(player.currentTime, dur), playbackRate: 1 });
+		} else {
+			ms.setPositionState();
+		}
+	} catch {
+		/* out-of-range/unsupported — ignore */
 	}
 }
 
@@ -458,6 +501,8 @@ function setNowPlayingMetadata(track: Metadata) {
 		album,
 		artwork: art ? [{ src: art, sizes: '300x300', type: 'image/jpeg' }] : []
 	});
+	setupMediaSessionHandlers(); // re-assert (some platforms drop handlers on source change)
+	syncMediaPlaybackState();
 }
 
 // --- timeline reporting (keeps Plex "recently played" + resume points / viewOffset current) ---
