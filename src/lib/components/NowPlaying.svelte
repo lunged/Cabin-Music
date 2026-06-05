@@ -16,11 +16,13 @@
 	import Art from './Art.svelte';
 	import Icon from './Icon.svelte';
 	import Seekbar from './Seekbar.svelte';
+	import { artUrl } from '$lib/plex/media';
 
 	let showQueue = $state(false);
 
 	const track = $derived(currentTrack());
 	const artThumb = $derived(track?.parentThumb ?? track?.thumb ?? null);
+	const bgArt = $derived(artThumb ? artUrl(artThumb, 480) : null); // blurred UltraBlur backdrop
 	const artistHref = $derived(
 		track?.grandparentRatingKey ? `/artist/${track.grandparentRatingKey}` : null
 	);
@@ -84,6 +86,10 @@
 	onpointerup={onUp}
 	onpointercancel={onUp}
 >
+	{#if bgArt}
+		<div class="np-bg" style="background-image: url('{bgArt}')"></div>
+		<div class="np-scrim"></div>
+	{/if}
 	<button class="close" onclick={toggleExpanded} aria-label="Close"><Icon name="chevron-down" size={32} /></button>
 	<button class="queuebtn" class:on={showQueue} onclick={() => (showQueue = !showQueue)} aria-label="Queue">
 		<Icon name="queue" size={26} />
@@ -152,12 +158,30 @@
 		inset: 0;
 		z-index: 200;
 		background: var(--bg);
+		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		gap: clamp(1rem, 2.5vh, 2rem);
 		padding: 5.5rem clamp(1.5rem, 4vw, 3rem) clamp(1.5rem, 4vw, 3rem);
+	}
+	/* UltraBlur: the album art, scaled up + heavily blurred, with a theme-aware scrim for legibility. */
+	.np-bg {
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		background-size: cover;
+		background-position: center;
+		filter: blur(64px) saturate(1.5);
+		transform: scale(1.3);
+		opacity: 0.7;
+	}
+	.np-scrim {
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		background: var(--np-scrim);
 	}
 	/* When the queue is open, content flows from the top and the list scrolls. */
 	.np.queueview {
