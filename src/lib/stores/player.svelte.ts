@@ -444,10 +444,7 @@ function setupMediaSessionHandlers() {
 	};
 	set('play', () => toggle());
 	set('pause', () => toggle());
-	set('stop', () => {
-		const a = el();
-		if (a) a.pause();
-	});
+	set('stop', null); // don't advertise stop → the widget shows a pause button instead
 	set('previoustrack', () => prev());
 	set('nexttrack', () => next());
 	set('seekto', (d: MediaSessionActionDetails) => {
@@ -496,7 +493,9 @@ function setNowPlayingMetadata(track: Metadata) {
 	// MediaSession needs an absolute URL; artUrl is a same-origin /img path in production.
 	if (art && art.startsWith('/') && typeof location !== 'undefined') art = location.origin + art;
 	navigator.mediaSession.metadata = new MediaMetadata({
-		title: track.title,
+		// The Tesla widget shows the source URL on line 2 (ignoring `artist`), so fold the artist into
+		// the title to surface it. `artist`/`album` stay set for platforms that show them properly.
+		title: artist ? `${track.title} · ${artist}` : track.title,
 		artist,
 		album,
 		artwork: art ? [{ src: art, sizes: '300x300', type: 'image/jpeg' }] : []
