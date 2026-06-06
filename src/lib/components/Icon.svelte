@@ -58,10 +58,11 @@
 	{:else if name === 'chevron-down'}
 		<polyline points="6 9 12 15 18 9" />
 	{:else if name === 'radio'}
-		<circle cx="12" cy="13" r="2.4" />
-		<path d="M4.9 7.8a10 10 0 0 1 14.2 0" />
-		<path d="M7.8 10.6a6 6 0 0 1 8.4 0" />
-		<path d="M12 15.4V20" />
+		<line x1="15" y1="8.5" x2="20" y2="3.5" />
+		<rect x="2.5" y="8.5" width="19" height="11" rx="2" />
+		<circle cx="15.5" cy="14" r="2.7" />
+		<line x1="6" y1="12.2" x2="10.5" y2="12.2" />
+		<line x1="6" y1="15.4" x2="9" y2="15.4" />
 	{:else if name === 'queue'}
 		<line x1="4" y1="7" x2="20" y2="7" />
 		<line x1="4" y1="12" x2="20" y2="12" />
