@@ -1,4 +1,5 @@
-// Playback engine: one HTMLAudioElement managed by a runes store. Albums/playlists become a
+// Playback engine: one media element (an invisible <video> playing audio, for car media-widget
+// controls) managed by a runes store. Albums/playlists become a
 // client-side queue; "Mixes for you" radio (server play queue) is layered on in playback.ts (3b).
 
 import type { Metadata } from '$lib/plex/types';
@@ -47,7 +48,7 @@ let base: Metadata[] = []; // original (pre-shuffle) order
 // the car's native media widget binds to one element and loses its session — timeline, prev/next,
 // pause — the moment we swap. One element keeps the widget working, at the cost of a small gap
 // between tracks.)
-let audio: HTMLAudioElement | null = null;
+let audio: HTMLMediaElement | null = null;
 let restored = false;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let candidates: string[] = []; // ordered playback URLs for the current track (quality + fallbacks)
@@ -66,18 +67,22 @@ function shuffled<T>(arr: T[]): T[] {
 	return a;
 }
 
-function el(): HTMLAudioElement | null {
-	if (typeof Audio === 'undefined') return null;
+function el(): HTMLMediaElement | null {
+	if (typeof document === 'undefined') return null;
 	if (audio) return audio;
-	const a = new Audio();
+	// Play through an invisible <video> element rather than `new Audio()`. The car's media widget gives
+	// a <video> source real transport controls (play/pause/prev/next); an <audio> source only gets a
+	// "stop". `playsinline` keeps it from auto-going fullscreen / into the Theater app, and it's
+	// rendered invisibly + attached to the DOM so the OS/car recognizes it. (Documented technique for
+	// media/lock-screen controls when an <audio> element falls short.)
+	const a = document.createElement('video');
 	a.preload = 'auto';
-	// Attach the element to the DOM so the OS / car media widget treats it as a real <audio> source.
-	// A detached `new Audio()` can be misclassified (e.g. shown as "video") with non-working transport
-	// controls, even though metadata still displays.
-	if (typeof document !== 'undefined') {
-		a.setAttribute('aria-hidden', 'true');
-		document.body.appendChild(a);
-	}
+	a.setAttribute('playsinline', '');
+	a.setAttribute('webkit-playsinline', '');
+	a.setAttribute('aria-hidden', 'true');
+	a.disablePictureInPicture = true;
+	a.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;';
+	document.body.appendChild(a);
 	a.addEventListener('timeupdate', () => {
 		player.currentTime = a.currentTime;
 		persistSoon();
@@ -107,7 +112,7 @@ function el(): HTMLAudioElement | null {
 	return audio;
 }
 /** The current audio element (single element; kept as a helper so callers read clearly). */
-function active(): HTMLAudioElement | null {
+function active(): HTMLMediaElement | null {
 	return audio;
 }
 /** No-op now — single-element playback has nothing to prefetch. Kept so queue-mutation callers and
