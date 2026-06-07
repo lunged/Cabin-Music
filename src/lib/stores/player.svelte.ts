@@ -71,6 +71,13 @@ function el(): HTMLAudioElement | null {
 	if (audio) return audio;
 	const a = new Audio();
 	a.preload = 'auto';
+	// Attach the element to the DOM so the OS / car media widget treats it as a real <audio> source.
+	// A detached `new Audio()` can be misclassified (e.g. shown as "video") with non-working transport
+	// controls, even though metadata still displays.
+	if (typeof document !== 'undefined') {
+		a.setAttribute('aria-hidden', 'true');
+		document.body.appendChild(a);
+	}
 	a.addEventListener('timeupdate', () => {
 		player.currentTime = a.currentTime;
 		persistSoon();
