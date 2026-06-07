@@ -99,7 +99,7 @@
 	</button>
 	<button
 		class="radiobtn"
-		onclick={() => track && playTrackRadio(track.ratingKey)}
+		onclick={() => playTrackRadio(track)}
 		aria-label="Start radio from this song"
 	>
 		<Icon name="radio" size={26} />

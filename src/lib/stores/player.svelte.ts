@@ -11,6 +11,7 @@ import {
 	pagePlayQueue,
 	reportTimeline
 } from '$lib/plex/playback';
+import { getSonicallySimilar } from '$lib/plex/library';
 import { readJSON, writeJSON } from '$lib/plex/storage';
 import { STORAGE_PREFIX } from '$lib/plex/config';
 import { logEvent } from '$lib/stores/debug.svelte';
@@ -569,22 +570,18 @@ export async function playArtistRadio(artistKey: string): Promise<void> {
 	}
 }
 
-/** "Track Radio" — a sonic station seeded by a track (same station mechanism as artist radio). */
-export async function playTrackRadio(trackKey: string): Promise<void> {
+/** "Track Radio" — play tracks sonically similar to the given song (Plex `/nearest`). Tracks don't
+ *  expose a `station` like artists do, so we build the queue from the sonic-similarity results. */
+export async function playTrackRadio(seed: Metadata | null | undefined): Promise<void> {
+	if (!seed?.ratingKey) return;
 	try {
-		const stationKey = await getArtistStationKey(trackKey);
-		if (!stationKey) {
-			logEvent(`no track radio for ${trackKey}`);
-			return;
-		}
-		const q = await createPlayQueue(stationUri(stationKey), { continuous: true });
-		if (!q.items.length) {
-			logEvent('track radio: empty queue');
-			return;
-		}
-		playList(q.items, 0, {
-			radio: { playQueueID: q.playQueueID, lastItemID: q.lastItemID, artistKey: trackKey }
-		});
+		const similar = await getSonicallySimilar(seed.ratingKey, { limit: 60 });
+		const playable = similar.filter(
+			(t) => t.ratingKey !== seed.ratingKey && !!t.Media?.[0]?.Part?.[0]?.key
+		);
+		logEvent(`track radio: ${playable.length}/${similar.length} similar playable for "${seed.title}"`);
+		if (!playable.length) return;
+		playList(playable, 0);
 	} catch (e) {
 		logEvent(`track radio failed: ${(e as Error)?.message ?? e}`);
 	}
