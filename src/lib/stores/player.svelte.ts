@@ -1,5 +1,4 @@
-// Playback engine: one media element (an invisible <video> playing audio, for car media-widget
-// controls) managed by a runes store. Albums/playlists become a
+// Playback engine: one HTMLAudioElement managed by a runes store. Albums/playlists become a
 // client-side queue; "Mixes for you" radio (server play queue) is layered on in playback.ts (3b).
 
 import type { Metadata } from '$lib/plex/types';
@@ -48,7 +47,7 @@ let base: Metadata[] = []; // original (pre-shuffle) order
 // the car's native media widget binds to one element and loses its session — timeline, prev/next,
 // pause — the moment we swap. One element keeps the widget working, at the cost of a small gap
 // between tracks.)
-let audio: HTMLMediaElement | null = null;
+let audio: HTMLAudioElement | null = null;
 let restored = false;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let candidates: string[] = []; // ordered playback URLs for the current track (quality + fallbacks)
@@ -67,22 +66,19 @@ function shuffled<T>(arr: T[]): T[] {
 	return a;
 }
 
-function el(): HTMLMediaElement | null {
-	if (typeof document === 'undefined') return null;
+function el(): HTMLAudioElement | null {
+	if (typeof Audio === 'undefined') return null;
 	if (audio) return audio;
-	// Play through an invisible <video> element rather than `new Audio()`. The car's media widget gives
-	// a <video> source real transport controls (play/pause/prev/next); an <audio> source only gets a
-	// "stop". `playsinline` keeps it from auto-going fullscreen / into the Theater app, and it's
-	// rendered invisibly + attached to the DOM so the OS/car recognizes it. (Documented technique for
-	// media/lock-screen controls when an <audio> element falls short.)
-	const a = document.createElement('video');
+	// Use an <audio> element. (A <video> element earns richer car transport controls, BUT the Tesla
+	// then treats playback as VIDEO and greys out ALL controls while driving — worse for a music app —
+	// so we stay with <audio>, accepting the car's limited web-audio controls.) Attached to the DOM for
+	// best-effort OS/car media recognition.
+	const a = new Audio();
 	a.preload = 'auto';
-	a.setAttribute('playsinline', '');
-	a.setAttribute('webkit-playsinline', '');
-	a.setAttribute('aria-hidden', 'true');
-	a.disablePictureInPicture = true;
-	a.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;';
-	document.body.appendChild(a);
+	if (typeof document !== 'undefined') {
+		a.setAttribute('aria-hidden', 'true');
+		document.body.appendChild(a);
+	}
 	a.addEventListener('timeupdate', () => {
 		player.currentTime = a.currentTime;
 		persistSoon();
@@ -112,7 +108,7 @@ function el(): HTMLMediaElement | null {
 	return audio;
 }
 /** The current audio element (single element; kept as a helper so callers read clearly). */
-function active(): HTMLMediaElement | null {
+function active(): HTMLAudioElement | null {
 	return audio;
 }
 /** No-op now — single-element playback has nothing to prefetch. Kept so queue-mutation callers and
