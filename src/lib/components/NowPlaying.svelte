@@ -231,6 +231,16 @@
 		right: 1.25rem;
 		color: var(--text-dim);
 	}
+	/* Right-hand drive: mirror the corner controls to the side nearest the driver (the right). */
+	:global([data-drive='rhd']) .close,
+	:global([data-drive='rhd']) .queuebtn {
+		left: auto;
+		right: 1.25rem;
+	}
+	:global([data-drive='rhd']) .radiobtn {
+		right: auto;
+		left: 1.25rem;
+	}
 	.art {
 		width: min(46vh, 440px);
 		aspect-ratio: 1;

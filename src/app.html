@@ -25,6 +25,13 @@
 		</style>
 		<script>
 			(function () {
+				document.documentElement.dataset.drive = 'lhd';
+				try {
+					var dr = localStorage.getItem('cabin.drive');
+					if (dr && JSON.parse(dr) === 'rhd') document.documentElement.dataset.drive = 'rhd';
+				} catch (e) {
+					/* keep default lhd */
+				}
 				try {
 					var raw = localStorage.getItem('cabin.theme');
 					var choice = raw ? JSON.parse(raw) : 'auto';

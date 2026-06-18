@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { library, setActive } from '$lib/stores/library.svelte';
 	import { theme, setTheme, type ThemeChoice } from '$lib/stores/theme.svelte';
+	import { drive, setDrive, type Drive } from '$lib/stores/drive.svelte';
 	import {
 		quality,
 		setQuality,
@@ -14,6 +15,10 @@
 	import { signOut } from '$lib/plex/auth';
 
 	const themes: ThemeChoice[] = ['auto', 'light', 'dark'];
+	const drives: { id: Drive; label: string }[] = [
+		{ id: 'lhd', label: 'Left' },
+		{ id: 'rhd', label: 'Right' }
+	];
 	const qualities: Quality[] = ['original', 'high', 'medium', 'low'];
 
 	function pickQuality(q: Quality) {
@@ -42,6 +47,20 @@
 		<div class="seg">
 			{#each themes as t (t)}
 				<button class="seg-btn" class:sel={theme.choice === t} onclick={() => setTheme(t)}>{t}</button>
+			{/each}
+		</div>
+	</div>
+
+	<div class="group">
+		<h2>Driver side</h2>
+		<p class="dim">
+			Right-hand drive moves the menu and the on-screen controls to the side nearest you.
+		</p>
+		<div class="seg">
+			{#each drives as d (d.id)}
+				<button class="seg-btn" class:sel={drive.side === d.id} onclick={() => setDrive(d.id)}>
+					{d.label}
+				</button>
 			{/each}
 		</div>
 	</div>

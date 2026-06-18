@@ -7,6 +7,7 @@
 	import LibraryChooser from '$lib/components/LibraryChooser.svelte';
 	import { bootSession } from '$lib/plex/discovery';
 	import { initTheme } from '$lib/stores/theme.svelte';
+	import { initDrive } from '$lib/stores/drive.svelte';
 	import { session } from '$lib/stores/session.svelte';
 	import { library, loadSections } from '$lib/stores/library.svelte';
 
@@ -14,6 +15,7 @@
 
 	onMount(() => {
 		initTheme();
+		initDrive();
 		// Boot the session once: pair → discover → connect, or reconnect from cache.
 		const ctrl = new AbortController();
 		void bootSession(ctrl.signal);

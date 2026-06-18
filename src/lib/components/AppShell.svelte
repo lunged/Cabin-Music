@@ -31,6 +31,10 @@
 		flex: 1 1 auto;
 		min-height: 0;
 	}
+	/* Right-hand drive: move the nav rail to the side nearest the driver (the right). */
+	:global([data-drive='rhd']) .row {
+		flex-direction: row-reverse;
+	}
 	.content {
 		flex: 1 1 auto;
 		min-width: 0;
