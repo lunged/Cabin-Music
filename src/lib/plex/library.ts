@@ -99,6 +99,28 @@ export async function getLovedTracks(
 	return res;
 }
 
+/** All of an artist's releases — albums, EPs, singles, live, compilations. A section search filtered
+ *  by artist.id (what Plex/Plexamp use); unlike /metadata/{id}/children it returns every release type. */
+export async function getArtistAlbums(
+	sectionId: string,
+	artistKey: string,
+	opts: { size?: number; sort?: string } = {},
+	signal?: AbortSignal
+): Promise<PageResult> {
+	const { size = 200, sort = 'year:desc' } = opts;
+	const data = await serverFetch<any>(`/library/sections/${sectionId}/all`, {
+		query: {
+			type: TYPE.album,
+			'artist.id': artistKey,
+			sort,
+			'X-Plex-Container-Start': 0,
+			'X-Plex-Container-Size': size
+		},
+		signal
+	});
+	return page(container(data), 0);
+}
+
 /** Children of an item: artist → albums, album → tracks. */
 export async function getChildren(
 	ratingKey: string,

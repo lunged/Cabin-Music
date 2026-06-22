@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { getMetadata, getChildren, getSonicallySimilar } from '$lib/plex/library';
+	import { getMetadata, getChildren, getArtistAlbums, getSonicallySimilar } from '$lib/plex/library';
+	import { activeSection } from '$lib/stores/library.svelte';
 	import { artUrl } from '$lib/plex/media';
 	import { shuffleArtist, playArtistRadio } from '$lib/stores/player.svelte';
 	import ArtTile from '$lib/components/ArtTile.svelte';
@@ -32,14 +33,19 @@
 		albums = [];
 		similar = [];
 		try {
-			const [meta, children, sim] = await Promise.all([
+			const sec = activeSection();
+			const [meta, rel, sim] = await Promise.all([
 				getMetadata(k, signal),
-				getChildren(k, { size: 200, sort: 'year:desc' }, signal),
+				// All release types (albums/EPs/singles/live/compilations) via a section search; falls
+				// back to /children if the active section is somehow unavailable.
+				sec
+					? getArtistAlbums(sec.key, k, { size: 200 }, signal)
+					: getChildren(k, { size: 200, sort: 'year:desc' }, signal),
 				getSonicallySimilar(k, { limit: 16 }, signal).catch(() => [] as Metadata[])
 			]);
 			if (signal.aborted) return;
 			header = meta;
-			albums = children.items;
+			albums = rel.items;
 			similar = sim.filter((s) => s.type === 'artist');
 		} catch (e) {
 			if (!signal.aborted) error = e instanceof Error ? e.message : String(e);
