@@ -22,7 +22,7 @@
 		"svelte-check": "^4.4.6",
 		"typescript": "^6.0.2",
 		"vite": "^8.0.7",
-		"wrangler": "^4.97.0"
+		"wrangler": "^4.103.0"
 	},
 	"dependencies": {
 		"qrcode": "^1.5.4"
