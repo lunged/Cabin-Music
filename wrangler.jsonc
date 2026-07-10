@@ -4,6 +4,9 @@
 	"compatibility_date": "2026-06-03",
 	// Worker runs in front of the static assets: it proxies /plex (Plex JSON, with CORS headers)
 	// and serves the SPA for everything else via the ASSETS binding.
+	//
+	// Optional private mode: `wrangler secret put CABIN_PASSPHRASE` gates /plex + /img behind a
+	// passphrase (see README "Private mode"). Secrets are NOT stored here — never commit them.
 	"main": "worker/index.ts",
 	"assets": {
 		"directory": "./build",

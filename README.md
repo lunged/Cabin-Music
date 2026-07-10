@@ -102,6 +102,37 @@ npm run deploy       # = npm run build && wrangler deploy
 
 Optionally add a custom domain in the Cloudflare dashboard (e.g. `music.yourdomain.com`).
 
+## Private mode (optional access gate)
+
+By default the deployed app is reachable by anyone who has the URL. Your **music is still safe**
+(nobody can browse it without pairing with *your* Plex account), but the Worker's `/plex` and `/img`
+routes act as an open Plex proxy for whoever finds the URL. To make an instance **private**, set a
+shared passphrase:
+
+```sh
+wrangler secret put CABIN_PASSPHRASE      # type a strong passphrase when prompted
+npm run deploy
+```
+
+With the secret set, the Worker refuses to proxy `/plex` or `/img` without a valid `cabin_auth`
+cookie. On first load the app shows an **access screen**; enter the passphrase **once** and a
+long-lived (`HttpOnly`, `Secure`, 1-year) cookie keeps that browser unlocked — ideal for the car,
+which has no email or second device. The passphrase itself is never stored in the cookie (the cookie
+is an HMAC of it) and never ships to the browser.
+
+- **Use a strong passphrase.** There's no server-side rate limiting (the gate is deliberately a
+  stateless, single-secret check), so its security rests on the passphrase's entropy — pick a long
+  one. For extra hardening you can add a Cloudflare **Rate Limiting** rule on `/auth` in the dashboard.
+- **To rotate / revoke:** run `wrangler secret put CABIN_PASSPHRASE` again and redeploy — every
+  existing cookie is instantly invalidated and all clients must re-enter the new passphrase.
+- **Leave the secret unset** to keep the app fully open (the default; forks are unaffected).
+- **Local testing:** copy [`.dev.vars.example`](.dev.vars.example) to `.dev.vars` (gitignored) and
+  run `npm run build && npx wrangler dev` to exercise the gate.
+
+> The gate protects your **data** (the Plex proxy + artwork), not the static app shell — the shell is
+> just public JS with no secrets in it. Audio/artwork that stream directly from `plex.direct` are
+> already protected by your Plex token.
+
 ## Tech
 
 Svelte 5 (runes) · SvelteKit + `adapter-static` (SPA, `ssr=false`) · Vite (`es2022`) · TypeScript ·

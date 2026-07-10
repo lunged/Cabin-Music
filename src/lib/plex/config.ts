@@ -35,3 +35,11 @@ export const PLEX_PROXY_PATH = '/plex';
  *  repeat views are served from Cloudflare (fast) and the home server does far fewer transcodes. The
  *  client falls back to the direct plex.direct URL if a proxied image fails. */
 export const PLEX_IMG_PATH = '/img';
+
+/** Same-origin Worker route for the optional passphrase gate (production only). GET reports whether
+ *  the gate is enabled + this browser is unlocked; POST submits the passphrase to mint the cookie. */
+export const PLEX_AUTH_PATH = '/auth';
+
+/** Response body the Worker sends on a GATE 401 (vs a forwarded Plex 401). Lets the SPA re-show the
+ *  passphrase screen only for gate rejections. MUST match GATE_401_BODY in worker/index.ts. */
+export const GATE_401_BODY = 'cabin-locked';

@@ -3,23 +3,35 @@
 	import { onMount } from 'svelte';
 	import DebugPanel from '$lib/components/DebugPanel.svelte';
 	import ConnectionGate from '$lib/components/ConnectionGate.svelte';
+	import AccessGate from '$lib/components/AccessGate.svelte';
 	import AppShell from '$lib/components/AppShell.svelte';
 	import LibraryChooser from '$lib/components/LibraryChooser.svelte';
 	import { bootSession } from '$lib/plex/discovery';
 	import { initTheme } from '$lib/stores/theme.svelte';
 	import { initDrive } from '$lib/stores/drive.svelte';
 	import { session } from '$lib/stores/session.svelte';
+	import { gate, checkGate } from '$lib/stores/gate.svelte';
 	import { library, loadSections } from '$lib/stores/library.svelte';
 
 	let { children } = $props();
+	let bootCtrl: AbortController | null = null;
+	let booted = false;
 
 	onMount(() => {
 		initTheme();
 		initDrive();
-		// Boot the session once: pair → discover → connect, or reconnect from cache.
-		const ctrl = new AbortController();
-		void bootSession(ctrl.signal);
-		return () => ctrl.abort();
+		// Check the optional passphrase gate first; booting waits until it's cleared (below).
+		bootCtrl = new AbortController();
+		void checkGate(bootCtrl.signal);
+		return () => bootCtrl?.abort();
+	});
+
+	// Boot the session once the gate is cleared: pair → discover → connect, or reconnect from cache.
+	$effect(() => {
+		if (gate.checked && !gate.required && !booted && bootCtrl) {
+			booted = true;
+			void bootSession(bootCtrl.signal);
+		}
 	});
 
 	// Once connected, load the server's music libraries (once).
@@ -30,7 +42,11 @@
 	});
 </script>
 
-{#if session.status !== 'connected'}
+{#if !gate.checked}
+	<main class="boot"><div class="spinner" aria-hidden="true"></div></main>
+{:else if gate.required}
+	<AccessGate />
+{:else if session.status !== 'connected'}
 	<ConnectionGate />
 {:else if !library.loaded}
 	<main class="boot">

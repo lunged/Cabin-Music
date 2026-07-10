@@ -2,10 +2,11 @@
 // Server calls use the token as a QUERY param + minimal headers → "simple" requests with no CORS
 // preflight (most robust against per-server CORS config; the dev origin is allowlisted).
 
-import { plexFetch, type PlexFetchOpts } from './client';
+import { plexFetch, PlexError, type PlexFetchOpts } from './client';
 import { getClientId } from './identifiers';
-import { PLEX_IMG_PATH } from './config';
+import { PLEX_IMG_PATH, GATE_401_BODY } from './config';
 import { session } from '$lib/stores/session.svelte';
+import { requireGate } from '$lib/stores/gate.svelte';
 import { bitrateFor } from '$lib/stores/quality.svelte';
 import type { Metadata } from './types';
 
@@ -14,19 +15,28 @@ type ServerOpts = Pick<PlexFetchOpts, 'query' | 'signal' | 'method' | 'timeoutMs
 export async function serverFetch<T>(path: string, opts: ServerOpts = {}): Promise<T> {
 	const active = session.active;
 	if (!active) throw new Error('Not connected to a server');
-	return plexFetch<T>(path, {
-		...opts,
-		// Client identifier as a query param (kept out of headers so requests stay preflight-free).
-		// Required by stateful endpoints like /playQueues, harmless elsewhere.
-		query: { 'X-Plex-Client-Identifier': getClientId(), ...opts.query },
-		base: active.baseUri,
-		token: active.accessToken,
-		tokenIn: 'query',
-		minimalHeaders: true,
-		// In production, route server JSON through the same-origin Worker proxy (no CORS dependency).
-		// In dev, call plex.direct directly (Plex auto-allows localhost).
-		viaProxy: import.meta.env.PROD
-	});
+	try {
+		return await plexFetch<T>(path, {
+			...opts,
+			// Client identifier as a query param (kept out of headers so requests stay preflight-free).
+			// Required by stateful endpoints like /playQueues, harmless elsewhere.
+			query: { 'X-Plex-Client-Identifier': getClientId(), ...opts.query },
+			base: active.baseUri,
+			token: active.accessToken,
+			tokenIn: 'query',
+			minimalHeaders: true,
+			// In production, route server JSON through the same-origin Worker proxy (no CORS dependency).
+			// In dev, call plex.direct directly (Plex auto-allows localhost).
+			viaProxy: import.meta.env.PROD
+		});
+	} catch (e) {
+		// Re-lock ONLY on the Worker gate's tagged 401 (cookie expired / secret rotated mid-session).
+		// A plain Plex 401 (revoked Plex token) is left alone so its caller can route to re-pairing.
+		if (import.meta.env.PROD && e instanceof PlexError && e.status === 401 && e.body === GATE_401_BODY) {
+			requireGate();
+		}
+		throw e;
+	}
 }
 
 /** Love/unlove (rate) an item. Plex userRating is 0–10; 10 = loved, -1 clears. GET keeps it a

@@ -1,0 +1,5 @@
+# Local-only Worker secrets for `wrangler dev`. Copy to `.dev.vars` (gitignored) to test the gate.
+# In production, set this with:  wrangler secret put CABIN_PASSPHRASE
+#
+# Leave unset/empty to disable the access gate entirely (app is fully open — the default).
+CABIN_PASSPHRASE="change-me-to-a-strong-passphrase"
