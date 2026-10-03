@@ -15,7 +15,7 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.10",
-		"@sveltejs/kit": "^2.57.0",
+		"@sveltejs/kit": "^2.70.3",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
 		"@types/node": "^25.9.1",
 		"@types/qrcode": "^1.5.6",
@@ -23,9 +23,14 @@
 		"svelte-check": "^4.4.6",
 		"typescript": "^6.0.2",
 		"vite": "^8.0.7",
-		"wrangler": "^4.103.0"
+		"wrangler": "^4.147.0"
 	},
 	"dependencies": {
 		"qrcode": "^1.5.4"
+	},
+	"overrides": {
+		"@sveltejs/kit": {
+			"cookie": "^0.7.2"
+		}
 	}
 }
