@@ -13,10 +13,13 @@ import { STORAGE_PREFIX } from '$lib/plex/config';
 const KEY = STORAGE_PREFIX + 'scale';
 
 // Keep the default + accepted range in sync with the pre-paint script in src/app.html.
-// Default ≈ 1/1.53 (Model 3/Y; S/X measure 1/1.56): restores the pre-2026.26 look on the car.
-// ponytail: one fixed default for every browser — the car has no UA token to detect any more and
-// dpr alone can't tell zoom from a HiDPI screen. Desktop/older firmware: pick 100% once in Settings.
-export const SCALE_DEFAULT = 0.65;
+// Default 65% ≈ 1/1.53 (Model 3/Y; S/X measure 1/1.56): restores the pre-2026.26 look on the car.
+// Browsers still reporting dpr ≤ 1.25 (older firmware, plain desktop monitors) were never inflated,
+// so they keep 100%.
+// ponytail: dpr can't tell the car's zoom from a HiDPI screen (and the car has no UA token any
+// more), so Retina desktops and phones also default to 65% — pick another size once in Settings.
+export const SCALE_DEFAULT =
+	typeof devicePixelRatio === 'number' && devicePixelRatio > 1.25 ? 0.65 : 1;
 export const SCALES = [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.9, 1];
 
 function loadScale(): number {
