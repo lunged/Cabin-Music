@@ -10,6 +10,12 @@
 	}
 
 	const origin = typeof location !== 'undefined' ? location.origin : '';
+
+	// What the car's browser actually gives us — the numbers needed to calibrate Display size.
+	function display(): string {
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+		return `${innerWidth}×${innerHeight} css px · screen ${screen.width}×${screen.height} · dpr ${devicePixelRatio} · rem ${rem}px`;
+	}
 </script>
 
 {#if debug.visible}
@@ -32,6 +38,10 @@
 			<dd>{maskedToken(session.token)}</dd>
 			<dt>origin</dt>
 			<dd>{origin}</dd>
+			<dt>display</dt>
+			<dd>{display()}</dd>
+			<dt>browser</dt>
+			<dd>{navigator.userAgent}</dd>
 		</dl>
 
 		<div class="section">network · {debug.calls.length}</div>
@@ -66,17 +76,17 @@
 	.panel {
 		position: fixed;
 		inset: 0 auto 0 0;
-		width: min(560px, 94vw);
+		width: min(35rem, 94vw);
 		z-index: 9999;
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
-		padding: 16px;
+		gap: 0.625rem;
+		padding: 1rem;
 		background: var(--bg-elevated);
 		color: var(--text);
-		box-shadow: 0 0 40px var(--shadow);
+		box-shadow: 0 0 2.5rem var(--shadow);
 		font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-		font-size: 13px;
+		font-size: 0.8125rem;
 		overflow: hidden;
 		user-select: text;
 	}
@@ -87,9 +97,9 @@
 	}
 	.close,
 	.signout {
-		min-height: 44px;
-		padding: 0 16px;
-		border-radius: 10px;
+		min-height: 2.75rem;
+		padding: 0 1rem;
+		border-radius: 0.625rem;
 		background: var(--surface);
 		color: var(--text);
 		font: inherit;
@@ -102,7 +112,7 @@
 	.kv {
 		display: grid;
 		grid-template-columns: max-content 1fr;
-		gap: 2px 12px;
+		gap: 2px 0.75rem;
 		margin: 0;
 	}
 	.kv dt {
@@ -113,15 +123,15 @@
 		word-break: break-all;
 	}
 	.section {
-		margin-top: 4px;
+		margin-top: 0.25rem;
 		color: var(--text-dim);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
-		font-size: 11px;
+		font-size: 0.6875rem;
 	}
 	.log {
 		flex: 1 1 auto;
-		min-height: 60px;
+		min-height: 3.75rem;
 		overflow-y: auto;
 	}
 	.log,
@@ -131,13 +141,13 @@
 		padding: 0;
 	}
 	.events {
-		max-height: 120px;
+		max-height: 7.5rem;
 		overflow-y: auto;
 	}
 	.log li {
 		display: grid;
-		grid-template-columns: 44px 56px 42px 1fr;
-		gap: 6px;
+		grid-template-columns: 2.75rem 3.5rem 2.625rem 1fr;
+		gap: 0.375rem;
 		align-items: baseline;
 		padding: 3px 0;
 		border-bottom: 1px solid var(--border);

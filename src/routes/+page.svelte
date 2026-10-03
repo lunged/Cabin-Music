@@ -284,7 +284,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		min-height: 48px;
+		min-height: 3rem;
 		padding: 0 1.4rem;
 		border-radius: 999px;
 		background: var(--surface);
@@ -301,10 +301,10 @@
 		padding: 4rem 0;
 	}
 	.spinner {
-		width: 44px;
-		height: 44px;
+		width: 2.75rem;
+		height: 2.75rem;
 		border-radius: 50%;
-		border: 4px solid var(--surface);
+		border: 0.25rem solid var(--surface);
 		border-top-color: var(--accent);
 		animation: spin 0.9s linear infinite;
 	}

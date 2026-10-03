@@ -55,23 +55,23 @@
 		display: flex;
 		align-items: center;
 		gap: 1.5rem;
-		padding: 14px 1.5rem;
+		padding: 0.875rem 1.5rem;
 		background: var(--bg-elevated);
 		border-top: 1px solid var(--border);
 	}
 	.meta {
 		flex: 1 1 0;
 		min-width: 0;
-		max-width: 360px;
+		max-width: 22.5rem;
 		display: flex;
 		align-items: center;
 		gap: 0.85rem;
 	}
 	.art {
 		flex: 0 0 auto;
-		width: 64px;
-		height: 64px;
-		border-radius: 8px;
+		width: 4rem;
+		height: 4rem;
+		border-radius: 0.5rem;
 		overflow: hidden;
 		background: var(--surface);
 		padding: 0;
@@ -85,6 +85,7 @@
 	}
 	.title {
 		display: block;
+		padding: 0;
 		max-width: 100%;
 		font-weight: 600;
 		color: var(--text);
@@ -112,22 +113,22 @@
 	.ctl {
 		display: grid;
 		place-items: center;
-		width: 72px;
-		height: 72px;
+		width: 4.5rem;
+		height: 4.5rem;
 		border-radius: 50%;
 		color: var(--text);
 	}
 	.play {
 		display: grid;
 		place-items: center;
-		width: 96px;
-		height: 96px;
+		width: 6rem;
+		height: 6rem;
 		border-radius: 50%;
 		background: var(--accent);
 		color: #fff;
 	}
 	.seek {
 		flex: 1 1 0;
-		min-width: 120px;
+		min-width: 7.5rem;
 	}
 </style>

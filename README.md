@@ -57,6 +57,7 @@ theme that follows the car, and a left/right-hand-drive option.
 - **Streaming quality**: Original/lossless (direct play) or capped MP3 tiers, with transcode fallback for unsupported codecs.
 - **Light / dark / auto** theme — *auto* follows the car's day/night.
 - **Left- or right-hand-drive** layout — RHD mirrors the menu and on-screen controls to the side nearest the driver.
+- **Display size** — one setting scales the whole interface, since the car browser's built-in zoom isn't adjustable and has changed between Tesla updates.
 - Edge-cached album art and oversized, minimal-distraction controls.
 
 ## How it works

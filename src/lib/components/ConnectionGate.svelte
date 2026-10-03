@@ -61,7 +61,7 @@
 	}
 	.detail {
 		margin: 0;
-		max-width: 680px;
+		max-width: 42.5rem;
 		color: var(--text-dim);
 		font-size: 0.95rem;
 		word-break: break-word;
@@ -89,10 +89,10 @@
 		color: var(--text);
 	}
 	.spinner {
-		width: 48px;
-		height: 48px;
+		width: 3rem;
+		height: 3rem;
 		border-radius: 50%;
-		border: 4px solid var(--surface);
+		border: 0.25rem solid var(--surface);
 		border-top-color: var(--accent);
 		animation: spin 0.9s linear infinite;
 	}

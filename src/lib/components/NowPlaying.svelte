@@ -19,6 +19,7 @@
 	import Seekbar from './Seekbar.svelte';
 	import { artUrl } from '$lib/plex/media';
 	import { isLoved, toggleLove } from '$lib/stores/ratings.svelte';
+	import { scale } from '$lib/stores/scale.svelte';
 
 	let showQueue = $state(false);
 
@@ -69,7 +70,7 @@
 	function onUp() {
 		if (!dragging) return;
 		dragging = false;
-		const dismiss = dragY > DISMISS_PX;
+		const dismiss = dragY > DISMISS_PX * scale.value; // threshold tracks the UI scale
 		dragY = 0;
 		if (dismiss) toggleExpanded();
 	}
@@ -186,7 +187,7 @@
 		z-index: -1;
 		background-size: cover;
 		background-position: center;
-		filter: blur(64px) saturate(1.5);
+		filter: blur(4rem) saturate(1.5);
 		transform: scale(1.3);
 		opacity: 0.7;
 	}
@@ -205,8 +206,8 @@
 	.queuebtn,
 	.radiobtn {
 		position: absolute;
-		width: 64px;
-		height: 64px;
+		width: 4rem;
+		height: 4rem;
 		border-radius: 50%;
 		display: grid;
 		place-items: center;
@@ -242,9 +243,9 @@
 		left: 1.25rem;
 	}
 	.art {
-		width: min(46vh, 440px);
+		width: min(46vh, 27.5rem);
 		aspect-ratio: 1;
-		border-radius: 18px;
+		border-radius: 1.125rem;
 		overflow: hidden;
 		background: var(--surface);
 	}
@@ -277,7 +278,7 @@
 		color: var(--text-dim);
 	}
 	.seek {
-		width: min(640px, 92vw);
+		width: min(40rem, 92vw);
 	}
 
 	/* Queue panel */
@@ -302,7 +303,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
-		border-radius: 10px;
+		border-radius: 0.625rem;
 	}
 	.queue li:nth-child(odd) {
 		background: var(--stripe);
@@ -314,7 +315,7 @@
 		grid-template-columns: 2rem 1fr;
 		align-items: center;
 		gap: 0.85rem;
-		min-height: 68px;
+		min-height: 4.25rem;
 		padding: 0.65rem 0.75rem;
 		color: var(--text);
 		text-align: left;
@@ -357,12 +358,12 @@
 		align-items: center;
 	}
 	.qactions button {
-		width: 52px;
-		height: 52px;
+		width: 3.25rem;
+		height: 3.25rem;
 		display: grid;
 		place-items: center;
 		color: var(--text-dim);
-		border-radius: 8px;
+		border-radius: 0.5rem;
 	}
 	.qactions button:disabled {
 		opacity: 0.3;
@@ -377,16 +378,16 @@
 	.ctl {
 		display: grid;
 		place-items: center;
-		width: 80px;
-		height: 80px;
+		width: 5rem;
+		height: 5rem;
 		border-radius: 50%;
 		color: var(--text);
 	}
 	.play {
 		display: grid;
 		place-items: center;
-		width: 112px;
-		height: 112px;
+		width: 7rem;
+		height: 7rem;
 		border-radius: 50%;
 		background: var(--accent);
 		color: #fff;
@@ -395,8 +396,8 @@
 		position: relative;
 		display: grid;
 		place-items: center;
-		width: 64px;
-		height: 64px;
+		width: 4rem;
+		height: 4rem;
 		border-radius: 50%;
 		color: var(--text-dim);
 	}
@@ -405,8 +406,8 @@
 	}
 	.one {
 		position: absolute;
-		right: 12px;
-		bottom: 10px;
+		right: 0.75rem;
+		bottom: 0.625rem;
 		font-size: 0.7rem;
 		font-weight: 700;
 	}

@@ -34,7 +34,7 @@
 <style>
 	.rail {
 		flex: 0 0 auto;
-		width: clamp(96px, 11vw, 150px);
+		width: clamp(6rem, 11vw, 9.375rem);
 		height: 100%;
 		display: flex;
 		flex-direction: column;
@@ -51,7 +51,7 @@
 		gap: 0.35rem;
 		min-height: var(--tap-min);
 		padding: 0.5rem;
-		border-radius: 14px;
+		border-radius: 0.875rem;
 		color: var(--text-dim);
 		text-decoration: none;
 		text-align: center;

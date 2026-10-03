@@ -84,7 +84,7 @@
 <style>
 	.box {
 		width: 100%;
-		max-width: 640px;
+		max-width: 40rem;
 		min-height: var(--tap-min);
 		padding: 0 1.25rem;
 		margin-bottom: 1.5rem;
@@ -102,10 +102,10 @@
 		padding: 3rem 0;
 	}
 	.spinner {
-		width: 40px;
-		height: 40px;
+		width: 2.5rem;
+		height: 2.5rem;
 		border-radius: 50%;
-		border: 4px solid var(--surface);
+		border: 0.25rem solid var(--surface);
 		border-top-color: var(--accent);
 		animation: spin 0.9s linear infinite;
 	}

@@ -72,7 +72,7 @@
 		display: flex;
 		align-items: stretch;
 		gap: 0.25rem;
-		border-radius: 10px;
+		border-radius: 0.625rem;
 	}
 	li:nth-child(odd) {
 		background: var(--stripe);
@@ -84,9 +84,9 @@
 		grid-template-columns: 2.5rem 1fr auto;
 		align-items: center;
 		gap: 1rem;
-		min-height: 68px;
+		min-height: 4.25rem;
 		padding: 0.7rem 0.9rem;
-		border-radius: 10px;
+		border-radius: 0.625rem;
 		color: var(--text);
 		text-align: left;
 		font-size: 1.05rem;
@@ -126,11 +126,11 @@
 	}
 	.love {
 		flex: 0 0 auto;
-		width: 48px;
+		width: 3rem;
 		display: grid;
 		place-items: center;
 		color: var(--text-dim);
-		border-radius: 10px;
+		border-radius: 0.625rem;
 	}
 	.love.on {
 		color: var(--accent);
@@ -139,8 +139,8 @@
 	.add {
 		flex: 0 0 auto;
 		align-self: center;
-		width: 52px;
-		height: 52px;
+		width: 3.25rem;
+		height: 3.25rem;
 		margin-left: 1rem;
 		display: grid;
 		place-items: center;

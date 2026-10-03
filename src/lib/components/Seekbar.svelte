@@ -83,7 +83,7 @@
 	.track {
 		position: relative;
 		flex: 1 1 auto;
-		height: 16px;
+		height: 1rem;
 		display: flex;
 		align-items: center;
 		cursor: pointer;
@@ -94,21 +94,21 @@
 		position: absolute;
 		left: 0;
 		right: 0;
-		height: 5px;
+		height: 0.3125rem;
 		border-radius: 999px;
 		background: var(--slider-track);
 	}
 	.fill {
 		position: absolute;
 		left: 0;
-		height: 5px;
+		height: 0.3125rem;
 		border-radius: 999px;
 		background: var(--accent);
 	}
 	.knob {
 		position: absolute;
-		width: 14px;
-		height: 14px;
+		width: 0.875rem;
+		height: 0.875rem;
 		border-radius: 50%;
 		background: var(--accent);
 		transform: translateX(-50%);

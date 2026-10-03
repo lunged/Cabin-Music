@@ -63,7 +63,7 @@
 		align-items: stretch;
 		gap: 1rem;
 		width: 100%;
-		max-width: 460px;
+		max-width: 28.75rem;
 		text-align: center;
 	}
 	h1 {

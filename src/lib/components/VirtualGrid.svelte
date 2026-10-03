@@ -20,6 +20,7 @@
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let sentinel: HTMLDivElement | undefined = $state();
+	let io: IntersectionObserver | undefined;
 
 	const done = $derived(total !== null && items.length >= total);
 
@@ -34,6 +35,12 @@
 				total = items.length; // nothing more — stop
 			} else {
 				items = [...items, ...res.items];
+				// Re-arm: the observer only fires on change, so a sentinel still on screen after a
+				// short page (big window / small Display size) would never trigger the next load.
+				if (io && sentinel) {
+					io.unobserve(sentinel);
+					io.observe(sentinel);
+				}
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -44,18 +51,18 @@
 
 	onMount(() => {
 		void loadMore();
-		const io = new IntersectionObserver(
+		const obs = (io = new IntersectionObserver(
 			(entries) => {
 				if (entries.some((e) => e.isIntersecting)) void loadMore();
 			},
 			{ rootMargin: '800px' }
-		);
-		if (sentinel) io.observe(sentinel);
-		return () => io.disconnect();
+		));
+		if (sentinel) obs.observe(sentinel);
+		return () => obs.disconnect();
 	});
 </script>
 
-<div class="grid" style="--tile-min: {tileMin}px">
+<div class="grid" style="--tile-min: {tileMin / 16}rem">
 	{#each items as item (item.ratingKey)}
 		<div class="cell"><ArtTile {item} size={tileMin} /></div>
 	{/each}
@@ -89,13 +96,13 @@
 	.sentinel {
 		display: grid;
 		place-items: center;
-		min-height: 64px;
+		min-height: 4rem;
 	}
 	.spinner {
-		width: 32px;
-		height: 32px;
+		width: 2rem;
+		height: 2rem;
 		border-radius: 50%;
-		border: 3px solid var(--surface);
+		border: 0.1875rem solid var(--surface);
 		border-top-color: var(--accent);
 		animation: spin 0.9s linear infinite;
 	}

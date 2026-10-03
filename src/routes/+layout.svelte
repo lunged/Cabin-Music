@@ -9,6 +9,7 @@
 	import { bootSession } from '$lib/plex/discovery';
 	import { initTheme } from '$lib/stores/theme.svelte';
 	import { initDrive } from '$lib/stores/drive.svelte';
+	import { initScale } from '$lib/stores/scale.svelte';
 	import { session } from '$lib/stores/session.svelte';
 	import { gate, checkGate } from '$lib/stores/gate.svelte';
 	import { library, loadSections } from '$lib/stores/library.svelte';
@@ -20,6 +21,7 @@
 	onMount(() => {
 		initTheme();
 		initDrive();
+		initScale();
 		// Check the optional passphrase gate first; booting waits until it's cleared (below).
 		bootCtrl = new AbortController();
 		void checkGate(bootCtrl.signal);
@@ -77,15 +79,15 @@
 	}
 	.err {
 		color: var(--accent);
-		max-width: 600px;
+		max-width: 37.5rem;
 		text-align: center;
 		padding: 0 8vw;
 	}
 	.spinner {
-		width: 44px;
-		height: 44px;
+		width: 2.75rem;
+		height: 2.75rem;
 		border-radius: 50%;
-		border: 4px solid var(--surface);
+		border: 0.25rem solid var(--surface);
 		border-top-color: var(--accent);
 		animation: spin 0.9s linear infinite;
 	}

@@ -93,7 +93,7 @@
 <style>
 	.back {
 		margin-bottom: 1rem;
-		min-height: 44px;
+		min-height: 2.75rem;
 		padding: 0 1rem;
 		border-radius: 999px;
 		background: var(--surface);
@@ -109,9 +109,9 @@
 	}
 	.art {
 		flex: 0 0 auto;
-		width: clamp(160px, 24vw, 280px);
+		width: clamp(10rem, 24vw, 17.5rem);
 		aspect-ratio: 1;
-		border-radius: 12px;
+		border-radius: 0.75rem;
 		overflow: hidden;
 		background: var(--surface);
 	}
@@ -138,10 +138,10 @@
 	.artist-link {
 		display: inline-flex;
 		align-items: center;
-		min-height: 48px;
+		min-height: 3rem;
 		margin: 0.35rem 0 0 -0.7rem;
 		padding: 0 0.7rem;
-		border-radius: 10px;
+		border-radius: 0.625rem;
 		font-size: clamp(1.15rem, 2.2vw, 1.5rem);
 		color: var(--text);
 	}
@@ -163,7 +163,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		min-height: 52px;
+		min-height: 3.25rem;
 		padding: 0 1.5rem;
 		border-radius: 999px;
 		font-size: 1rem;
@@ -187,10 +187,10 @@
 		padding: 4rem 0;
 	}
 	.spinner {
-		width: 40px;
-		height: 40px;
+		width: 2.5rem;
+		height: 2.5rem;
 		border-radius: 50%;
-		border: 4px solid var(--surface);
+		border: 0.25rem solid var(--surface);
 		border-top-color: var(--accent);
 		animation: spin 0.9s linear infinite;
 	}

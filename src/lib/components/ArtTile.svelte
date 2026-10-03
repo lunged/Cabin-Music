@@ -70,6 +70,7 @@
 <style>
 	.tile {
 		width: 100%;
+		padding: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
@@ -80,7 +81,7 @@
 	.art {
 		width: 100%;
 		aspect-ratio: 1 / 1;
-		border-radius: 10px;
+		border-radius: 0.625rem;
 		overflow: hidden;
 		background: var(--surface);
 	}

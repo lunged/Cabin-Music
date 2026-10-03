@@ -114,11 +114,11 @@
 		text-align: center;
 	}
 	.logo {
-		width: 96px;
-		height: 96px;
-		border-radius: 22px;
+		width: 6rem;
+		height: 6rem;
+		border-radius: 1.375rem;
 		display: block;
-		box-shadow: 0 8px 30px var(--shadow);
+		box-shadow: 0 0.5rem 1.875rem var(--shadow);
 	}
 	h1 {
 		margin: 0;
@@ -132,15 +132,15 @@
 		align-items: center;
 		justify-content: center;
 		gap: clamp(1.5rem, 5vw, 4rem);
-		max-width: 1000px;
+		max-width: 62.5rem;
 	}
 	.qrwrap {
 		flex: 0 0 auto;
 	}
 	.qr {
-		width: clamp(220px, 28vw, 340px);
-		height: clamp(220px, 28vw, 340px);
-		border-radius: 16px;
+		width: clamp(13.75rem, 28vw, 21.25rem);
+		height: clamp(13.75rem, 28vw, 21.25rem);
+		border-radius: 1rem;
 		background: #fff;
 		display: block;
 	}
@@ -148,8 +148,8 @@
 		background: var(--surface);
 	}
 	.how {
-		flex: 1 1 320px;
-		max-width: 460px;
+		flex: 1 1 20rem;
+		max-width: 28.75rem;
 		text-align: left;
 	}
 	.step {
@@ -174,8 +174,8 @@
 		color: var(--text-dim);
 	}
 	.dot {
-		width: 12px;
-		height: 12px;
+		width: 0.75rem;
+		height: 0.75rem;
 		border-radius: 50%;
 		background: var(--accent);
 		animation: pulse 1.4s ease-in-out infinite;
@@ -187,7 +187,7 @@
 		color: var(--accent);
 		font-family: ui-monospace, Menlo, monospace;
 		font-size: 0.9rem;
-		max-width: 600px;
+		max-width: 37.5rem;
 		word-break: break-word;
 	}
 	.primary {
@@ -200,10 +200,10 @@
 		font-weight: 600;
 	}
 	.spinner {
-		width: 48px;
-		height: 48px;
+		width: 3rem;
+		height: 3rem;
 		border-radius: 50%;
-		border: 4px solid var(--surface);
+		border: 0.25rem solid var(--surface);
 		border-top-color: var(--accent);
 		animation: spin 0.9s linear infinite;
 	}

@@ -2,6 +2,7 @@
 	import { library, setActive } from '$lib/stores/library.svelte';
 	import { theme, setTheme, type ThemeChoice } from '$lib/stores/theme.svelte';
 	import { drive, setDrive, type Drive } from '$lib/stores/drive.svelte';
+	import { scale, setScale, SCALES } from '$lib/stores/scale.svelte';
 	import {
 		quality,
 		setQuality,
@@ -47,6 +48,18 @@
 		<div class="seg">
 			{#each themes as t (t)}
 				<button class="seg-btn" class:sel={theme.choice === t} onclick={() => setTheme(t)}>{t}</button>
+			{/each}
+		</div>
+	</div>
+
+	<div class="group">
+		<h2>Display size</h2>
+		<p class="dim">Scales the whole interface. Turn it down if everything looks too big on your screen.</p>
+		<div class="seg">
+			{#each SCALES as s (s)}
+				<button class="seg-btn" class:sel={scale.value === s} onclick={() => setScale(s)}>
+					{Math.round(s * 100)}%
+				</button>
 			{/each}
 		</div>
 	</div>
@@ -102,7 +115,7 @@
 
 <style>
 	.settings {
-		max-width: 760px;
+		max-width: 47.5rem;
 	}
 	.group {
 		margin-bottom: 2.5rem;
@@ -123,7 +136,7 @@
 	}
 	.chip,
 	.seg-btn {
-		min-height: 56px;
+		min-height: 3.5rem;
 		padding: 0 1.25rem;
 		border-radius: 999px;
 		background: var(--surface);

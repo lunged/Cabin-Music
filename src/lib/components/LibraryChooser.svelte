@@ -44,7 +44,7 @@
 		flex-wrap: wrap;
 		justify-content: center;
 		gap: 1rem;
-		max-width: 900px;
+		max-width: 56.25rem;
 	}
 	.lib {
 		display: flex;
@@ -52,8 +52,8 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.75rem;
-		width: clamp(160px, 22vw, 220px);
-		min-height: 160px;
+		width: clamp(10rem, 22vw, 13.75rem);
+		min-height: 10rem;
 		padding: 1.5rem;
 		border-radius: var(--radius);
 		background: var(--surface);

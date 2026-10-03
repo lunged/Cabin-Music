@@ -28,7 +28,7 @@
 		position: relative;
 		width: 100%;
 		aspect-ratio: 1 / 1;
-		border-radius: 14px;
+		border-radius: 0.875rem;
 		overflow: hidden;
 		display: block;
 		text-align: left;

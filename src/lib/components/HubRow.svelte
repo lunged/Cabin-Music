@@ -24,7 +24,7 @@
 	<h2>{title}</h2>
 	<div class="row">
 		{#each items as item (item.ratingKey ?? item.key ?? item.title)}
-			<div class="slot" style="width: {tileSize}px">
+			<div class="slot" style="width: {tileSize / 16}rem">
 				{#if variant === 'mix'}
 					<MixCard
 						{item}
