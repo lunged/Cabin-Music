@@ -35,7 +35,8 @@ export function logCall(entry: Omit<NetLog, 'id'>): void {
 
 export function logEvent(msg: string): void {
 	debug.events.unshift({ t: Date.now(), msg });
-	if (debug.events.length > MAX_LOG) debug.events.length = MAX_LOG;
+	// Events are one short line each, and a drive's worth of track changes has to fit.
+	if (debug.events.length > MAX_LOG * 5) debug.events.length = MAX_LOG * 5;
 }
 
 export function toggleDebug(): void {

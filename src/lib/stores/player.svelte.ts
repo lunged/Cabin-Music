@@ -1,5 +1,6 @@
-// Playback engine: one HTMLAudioElement managed by a runes store. Albums/playlists become a
-// client-side queue; "Mixes for you" radio (server play queue) is layered on in playback.ts (3b).
+// Playback engine: one HTMLAudioElement for the music (plus an inaudible keep-alive element, see
+// below) managed by a runes store. Albums/playlists become a client-side queue; "Mixes for you"
+// radio (server play queue) is layered on in playback.ts (3b).
 
 import type { Metadata } from '$lib/plex/types';
 import { playbackCandidates, artUrl } from '$lib/plex/media';
@@ -17,6 +18,16 @@ import { STORAGE_PREFIX } from '$lib/plex/config';
 import { logEvent } from '$lib/stores/debug.svelte';
 
 const KEY = STORAGE_PREFIX + 'player';
+const KEEP_KEY = STORAGE_PREFIX + 'keepalive';
+
+/** What the keep-alive element plays: an inaudible tone (default), digital silence, or nothing. */
+export type KeepAlive = 'tone' | 'silent' | 'off';
+const KEEP_MODES: KeepAlive[] = ['tone', 'silent', 'off'];
+function loadKeepAlive(): KeepAlive {
+	const v = readJSON<KeepAlive>(KEEP_KEY, 'tone');
+	return KEEP_MODES.includes(v) ? v : 'tone';
+}
+export const keepAlive = $state({ mode: loadKeepAlive() });
 
 export type Repeat = 'off' | 'all' | 'one';
 export interface RadioState {
@@ -43,11 +54,18 @@ export function currentTrack(): Metadata | null {
 
 // --- module-level, non-reactive ---
 let base: Metadata[] = []; // original (pre-shuffle) order
-// A SINGLE <audio> element. (We previously ping-ponged two elements for near-gapless transitions, but
-// the car's native media widget binds to one element and loses its session — timeline, prev/next,
-// pause — the moment we swap. One element keeps the widget working, at the cost of a small gap
-// between tracks.)
+// A SINGLE <audio> element plays the music; each track is a src swap on it.
 let audio: HTMLAudioElement | null = null;
+// The keep-alive: a second, looping, inaudible element that plays for as long as the player is
+// logically playing. Chromium drops a page's media session (and its audio output stream) the instant
+// its only playing element ends, and only rebuilds it once the next src has data. The working theory
+// (the browser half is verified, the car half is not yet confirmed on a car) is that the car reads that
+// lapse as "browser audio ended": it resumes its own media source for the length of the gap and, with
+// the browser off screen, never lets the next track start. A second player that never ends keeps the
+// session alive across every track change.
+let keep: HTMLAudioElement | null = null;
+let keepWanted = false; // what WE last asked of the keep-alive; anything else it does came from outside
+let loadAt = 0; // when the current src was assigned (logs the load gap; 0 once it is playing)
 let restored = false;
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let candidates: string[] = []; // ordered playback URLs for the current track (quality + fallbacks)
@@ -85,27 +103,175 @@ function el(): HTMLAudioElement | null {
 		maybeReportTimeline();
 	});
 	a.addEventListener('durationchange', () => {
-		player.duration = Number.isFinite(a.duration) ? a.duration : 0;
+		// A non-finite duration (chunked transcode) keeps the Plex duration that load() published.
+		if (Number.isFinite(a.duration) && a.duration > 0) player.duration = a.duration;
 		syncMediaPosition();
 	});
 	a.addEventListener('play', () => {
+		if (!player.playing && !loadAt) logEvent(`resumed${vis()}`);
 		player.playing = true;
 		reportNow('playing');
 		syncMediaPlaybackState();
 		syncMediaPosition();
 	});
-	a.addEventListener('pause', () => {
-		player.playing = false;
-		reportNow('paused');
-		syncMediaPlaybackState();
-		syncMediaPosition();
+	a.addEventListener('playing', () => {
+		// Sound is really coming out now. Starting the keep-alive only here means the audible track is
+		// what takes the car's audio, and the keep-alive just holds on to it.
+		keepOn();
+		syncMediaPosition(); // the published position kept running while the track loaded
+		if (loadAt) {
+			logEvent(`playing "${currentTrack()?.title ?? '?'}" after ${Date.now() - loadAt}ms${vis()}`);
+			loadAt = 0;
+		}
 	});
-	a.addEventListener('ended', () => next(true));
+	a.addEventListener('pause', () => {
+		// The browser fires 'pause' right before 'ended' when a track finishes on its own. That is a
+		// track change, not a pause — publishing it would tell the car the music stopped.
+		if (a.ended) return;
+		onPause();
+	});
+	a.addEventListener('ended', () => {
+		logEvent(`ended "${currentTrack()?.title ?? '?'}"${vis()}`);
+		reportNow('paused'); // final position, so Plex counts the play (the 'pause' listener used to send it)
+		next(true);
+	});
 	a.addEventListener('error', onError);
 	audio = a;
 	setupMediaSessionHandlers();
 	registerUnloadFlush();
 	return audio;
+}
+
+/** ' (hidden)' while the page is off screen — the case the diagnostics log most needs to show. */
+function vis(): string {
+	return typeof document !== 'undefined' && document.visibilityState === 'hidden' ? ' (hidden)' : '';
+}
+
+// --- keep-alive ---
+// 10 s of stereo 16-bit PCM in a WAV Blob. What makes it count for the browser's media session: it
+// has an audio track, lasts over 5 s (shorter clips are "transient" and drop the car's controls),
+// loops, and plays unmuted at full volume. Stereo so it shares the music's output stream.
+// The 'tone' is 20 Hz at about −60 dBFS: tens of dB below what anyone can hear at 20 Hz, but above the
+// −72 dBFS level at which Chromium calls a tab "audible". That covers a car that judges "browser audio
+// stopped" by sound level, not just by session or stream state. Leave the element's volume at 1 —
+// the level lives in the samples. Tune KEEP_AMP if a car needs more; Settings can switch to pure
+// silence or turn the keep-alive off.
+const KEEP_HZ = 20; // whole cycles per second → the loop point is seamless
+const KEEP_AMP = 33; // peak, in 16-bit steps: 33/32768 ≈ −60 dBFS
+function keepWav(amp: number): string {
+	const rate = 44100;
+	const n = rate * 10; // frames
+	const buf = new ArrayBuffer(44 + n * 4);
+	const v = new DataView(buf);
+	const tag = (at: number, s: string) => {
+		for (let i = 0; i < 4; i++) v.setUint8(at + i, s.charCodeAt(i));
+	};
+	tag(0, 'RIFF');
+	v.setUint32(4, 36 + n * 4, true);
+	tag(8, 'WAVE');
+	tag(12, 'fmt ');
+	v.setUint32(16, 16, true); // fmt chunk size
+	v.setUint16(20, 1, true); // PCM
+	v.setUint16(22, 2, true); // channels
+	v.setUint32(24, rate, true);
+	v.setUint32(28, rate * 4, true); // bytes per second
+	v.setUint16(32, 4, true); // bytes per frame
+	v.setUint16(34, 16, true); // bits per sample
+	tag(36, 'data');
+	v.setUint32(40, n * 4, true);
+	if (amp) {
+		for (let i = 0; i < n; i++) {
+			const s = Math.round(amp * Math.sin((2 * Math.PI * KEEP_HZ * i) / rate));
+			v.setInt16(44 + i * 4, s, true);
+			v.setInt16(46 + i * 4, s, true);
+		}
+	}
+	return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+
+/** Create the keep-alive (once). Called from every play request, so the first call is inside a user
+ *  gesture: load() there also lifts a per-element autoplay lock, should the car's browser use one. */
+function armKeep() {
+	if (keep || keepAlive.mode === 'off' || typeof Audio === 'undefined') return;
+	const k = new Audio(keepWav(keepAlive.mode === 'tone' ? KEEP_AMP : 0));
+	k.loop = true;
+	// The browser or the car can pause/resume every player behind our back (the widget's stop button,
+	// a system suspend and resume). Follow it, so the music and the keep-alive never disagree.
+	// Events arrive a task late, so only act on one that still matches the element's state and that we
+	// did not ask for ourselves.
+	k.addEventListener('pause', () => {
+		if (k !== keep || !keepWanted || !k.paused) return;
+		logEvent(`keep-alive paused externally${vis()}`);
+		pause();
+	});
+	k.addEventListener('play', () => {
+		if (k !== keep || keepWanted || k.paused) return;
+		logEvent(`keep-alive resumed externally${vis()}`);
+		play();
+	});
+	k.addEventListener('error', () => logEvent('keep-alive failed to load'));
+	k.load();
+	keep = k;
+	logEvent(`keep-alive ready: ${keepAlive.mode}`);
+}
+function keepOn() {
+	keepWanted = true;
+	if (keep?.paused)
+		void keep.play().catch((e: unknown) => logEvent(`keep-alive blocked: ${(e as Error)?.name ?? e}${vis()}`));
+}
+function keepOff() {
+	keepWanted = false;
+	keep?.pause();
+}
+/** Retire the keep-alive element; armKeep() builds a new one on the next play request. Unloading it
+ *  (not just pausing) takes its player out of the media session, which then lets go of the audio. */
+function dropKeep() {
+	const k = keep;
+	keep = null; // its listeners now ignore it
+	keepWanted = false;
+	if (!k) return;
+	const url = k.src;
+	k.pause();
+	k.removeAttribute('src');
+	k.load();
+	URL.revokeObjectURL(url);
+}
+
+/** Choose what the keep-alive plays (Settings). Takes effect immediately. */
+export function setKeepAlive(mode: KeepAlive): void {
+	keepAlive.mode = mode;
+	writeJSON(KEEP_KEY, mode);
+	if (mode === 'off') logEvent('keep-alive off');
+	dropKeep();
+	if (player.playing) {
+		armKeep();
+		keepOn();
+	}
+}
+
+/** The player is now paused — by the user, the car's widget, or the browser. */
+function onPause() {
+	player.playing = false;
+	keepOff();
+	logEvent(`paused${vis()}`);
+	reportNow('paused');
+	syncMediaPlaybackState();
+	syncMediaPosition();
+}
+
+/** Playback is over (end of queue, queue emptied, nothing playable): let go of the media session
+ *  entirely, as a single element does when its last track ends. */
+function halt() {
+	player.playing = false;
+	dropKeep();
+	syncMediaPlaybackState();
+}
+
+function playBlocked(e: unknown) {
+	const name = (e as Error)?.name ?? String(e);
+	if (name === 'AbortError') return; // superseded by a newer load() or pause() — not a failure
+	logEvent(`play blocked: ${name}${vis()}`);
+	if (name === 'NotAllowedError') onPause(); // the browser refused: we are paused, not playing
 }
 /** The current audio element (single element; kept as a helper so callers read clearly). */
 function active(): HTMLAudioElement | null {
@@ -122,29 +288,41 @@ function load(track: Metadata, autoplay: boolean) {
 	candidateIdx = 0;
 	if (!candidates.length) {
 		logEvent(`no playable url for "${track.title}"`);
+		halt();
 		return;
 	}
 	a.src = candidates[0];
 	a.load();
+	loadAt = Date.now();
+	// Publish the new track's timeline now, from Plex's duration, before anything plays. The position
+	// must never be unset while two elements are playing: Chromium ≤150 answers that by wiping the
+	// title and artwork from the system's media controls.
+	player.currentTime = 0;
+	player.duration = (track.duration ?? 0) / 1000;
 	setNowPlayingMetadata(track);
-	if (autoplay) void a.play().catch((e: unknown) => logEvent(`play blocked: ${(e as Error)?.name ?? e}`));
+	syncMediaPosition();
+	if (autoplay) play();
 }
 
 function onError() {
 	const a = active();
 	const track = currentTrack();
 	if (!a || !track) return;
+	// An error on a paused (or just-restored) track must not start the music or walk the queue.
+	const go = player.playing;
 	// Walk the fallback chain (e.g. transcode after a failed direct play, or vice-versa).
 	candidateIdx++;
 	if (candidateIdx < candidates.length) {
 		logEvent(`playback fallback ${candidateIdx} for "${track.title}"`);
 		a.src = candidates[candidateIdx];
 		a.load();
-		void a.play().catch(() => {});
+		if (go) play();
 		return;
 	}
-	logEvent(`playback failed for "${track.title}" — skipping`);
-	next(true);
+	logEvent(`playback failed for "${track.title}"${go ? ' — skipping' : ''}`);
+	if (!go) return; // play() retries it
+	if (player.repeat === 'one') halt(); // repeating a track that cannot play: nothing else to try
+	else next(true);
 }
 
 function goTo(i: number) {
@@ -188,18 +366,32 @@ export function appendToQueue(tracks: Metadata[]): void {
 	reprime();
 }
 
-export function toggle(): void {
+/** Start or resume. Every play request goes through here. Safe to call when already playing. */
+export function play(): void {
 	const a = el();
 	if (!a) return;
-	if (player.playing) a.pause();
-	else void a.play().catch((e: unknown) => logEvent(`play blocked: ${(e as Error)?.name ?? e}`));
+	const t = currentTrack();
+	// A track that failed to load while paused (say, restored before the car was online): try again.
+	if (a.error && t) return load(t, true);
+	armKeep();
+	void a.play().catch(playBlocked);
+}
+
+/** Pause. Safe to call when already paused. */
+export function pause(): void {
+	if (audio && !audio.paused) audio.pause(); // → its 'pause' listener → onPause()
+}
+
+export function toggle(): void {
+	if (player.playing) pause();
+	else play();
 }
 
 export function next(auto = false): void {
 	if (!player.queue.length) return;
 	if (auto && player.repeat === 'one') {
 		seek(0);
-		void el()?.play().catch(() => {});
+		play();
 		return;
 	}
 	// Radio: top up the queue before it drains.
@@ -209,7 +401,9 @@ export function next(auto = false): void {
 		if (player.repeat === 'all') i = 0;
 		else {
 			// End of queue. (Radio extension is wired in 3b via appendToQueue.)
-			player.playing = false;
+			if (!auto) return; // Next on the last track: nothing to skip to, keep playing
+			logEvent(`end of queue${vis()}`);
+			halt();
 			persist();
 			return;
 		}
@@ -317,7 +511,7 @@ export function removeAt(i: number): void {
 			a.removeAttribute('src');
 			a.load();
 		}
-		player.playing = false;
+		halt();
 		player.currentTime = 0;
 		player.duration = 0;
 		persist();
@@ -357,27 +551,44 @@ export function moveQueueItem(from: number, to: number): void {
 
 // --- Media Session (best-effort) ---
 // Drives the car's native now-playing widget (title/art) AND its transport buttons. Each handler is
-// registered independently so one unsupported action can't drop the rest, and the set is re-asserted
-// per track (some platforms clear handlers when the audio source changes).
+// registered independently so one unsupported action can't drop the rest. Every action that arrives
+// is logged: the diagnostics panel then shows what the car's buttons actually send, if anything.
 function setupMediaSessionHandlers() {
 	if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
 	const ms = navigator.mediaSession;
-	const set = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
+	const set = (action: MediaSessionAction, handler: (d: MediaSessionActionDetails) => void) => {
 		try {
-			ms.setActionHandler(action, handler);
+			ms.setActionHandler(action, (d) => {
+				lastActionAt = Date.now();
+				logEvent(`media action: ${action}${vis()}`);
+				handler(d);
+			});
 		} catch {
 			/* this action is unsupported on this platform — skip just this one */
 		}
 	};
-	set('play', () => toggle());
-	set('pause', () => toggle());
-	set('stop', null); // don't advertise stop → the widget shows a pause button instead
-	set('previoustrack', () => prev());
+	// play/pause are explicit, never toggle(): a repeated or stale action must not flip the state.
+	set('play', play);
+	set('pause', pause);
+	set('stop', pause); // the browser offers stop whether or not we handle it; treat it as pause
+	set('previoustrack', prev);
 	set('nexttrack', () => next());
-	set('seekto', (d: MediaSessionActionDetails) => {
+	set('seekto', (d) => {
 		if (typeof d.seekTime === 'number') seek(d.seekTime);
 	});
 }
+
+// Hardware media keys, in case the car hands its steering-wheel / widget buttons to the page as key
+// presses instead of media-session actions (a browser that handles them itself never sends these).
+let lastActionAt = 0; // when the last media-session action arrived
+const MEDIA_KEYS: Record<string, () => void> = {
+	MediaTrackNext: () => next(),
+	MediaTrackPrevious: prev,
+	MediaPlayPause: toggle,
+	MediaPlay: play,
+	MediaPause: pause,
+	MediaStop: pause
+};
 
 /** Publish play/pause state so the widget shows + enables the right controls. */
 function syncMediaPlaybackState() {
@@ -396,10 +607,9 @@ function syncMediaPosition() {
 	if (typeof ms.setPositionState !== 'function') return;
 	try {
 		const dur = player.duration;
+		// Unknown duration → leave the last state in place. Never clear it (see load()).
 		if (dur > 0 && Number.isFinite(dur)) {
 			ms.setPositionState({ duration: dur, position: Math.min(player.currentTime, dur), playbackRate: 1 });
-		} else {
-			ms.setPositionState();
 		}
 	} catch {
 		/* out-of-range/unsupported — ignore */
@@ -427,7 +637,6 @@ function setNowPlayingMetadata(track: Metadata) {
 		album,
 		artwork: art ? [{ src: art, sizes: '300x300', type: 'image/jpeg' }] : []
 	});
-	setupMediaSessionHandlers(); // re-assert (some platforms drop handlers on source change)
 	syncMediaPlaybackState();
 }
 
@@ -456,7 +665,22 @@ function registerUnloadFlush() {
 	};
 	window.addEventListener('pagehide', flush);
 	document.addEventListener('visibilitychange', () => {
+		logEvent(`page ${document.visibilityState}`);
 		if (document.visibilityState === 'hidden') flush();
+	});
+	// If the car freezes the page while it is off screen, these two bracket the gap in the log.
+	document.addEventListener('freeze', () => logEvent('page frozen'));
+	document.addEventListener('resume', () => logEvent('page resumed'));
+	window.addEventListener('keydown', (e) => {
+		const act = MEDIA_KEYS[e.key];
+		if (!act || e.repeat) return;
+		// A browser that also turns the press into a media-session action must not act twice: wait a
+		// beat, then skip the key if an action has just been handled.
+		setTimeout(() => {
+			const dup = Date.now() - lastActionAt < 400;
+			logEvent(`media key: ${e.key}${dup ? ' (already handled)' : ''}${vis()}`);
+			if (!dup) act();
+		}, 60);
 	});
 }
 
@@ -499,6 +723,7 @@ export function restore(): void {
 	// Resume where you left off — prefer the server-side viewOffset if it's further along.
 	const resumeAt = Math.max(saved.time ?? 0, (t?.viewOffset ?? 0) / 1000);
 	player.currentTime = resumeAt;
+	player.duration = (t?.duration ?? 0) / 1000;
 	const a = el();
 	if (t && a) {
 		candidates = playbackCandidates(t);
@@ -511,6 +736,7 @@ export function restore(): void {
 			};
 			a.addEventListener('loadedmetadata', onMeta);
 			setNowPlayingMetadata(t);
+			syncMediaPosition();
 		}
 	}
 }

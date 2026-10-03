@@ -63,7 +63,7 @@
 			<div class="section">events</div>
 			<ul class="events">
 				{#each debug.events as ev}
-					<li>{ev.msg}</li>
+					<li>{new Date(ev.t).toLocaleTimeString('en-GB')} {ev.msg}</li>
 				{/each}
 			</ul>
 		{/if}
@@ -141,7 +141,7 @@
 		padding: 0;
 	}
 	.events {
-		max-height: 7.5rem;
+		max-height: 40vh;
 		overflow-y: auto;
 	}
 	.log li {

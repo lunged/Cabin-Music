@@ -44,6 +44,8 @@ theme that follows the car, and a left/right-hand-drive option.
 - Shuffle, repeat, seek, and **resume where you left off** (progress is reported back to Plex).
 - Full-screen player with an **UltraBlur** backdrop, swipe-down to dismiss, and tappable artist/album.
 - OS / car **Media Session** metadata (title, artist, artwork).
+- **Keeps the car's audio between tracks** — an inaudible keep-alive holds the browser's media session
+  across every track change (see [How it works](#how-it-works)).
 
 **Discovery** *(needs Plex Pass + music sonic analysis)*
 - **Mixes for you** and **Artist Mix** → endless artist radio.
@@ -73,6 +75,12 @@ theme that follows the car, and a left/right-hand-drive option.
   requests to your own server (proxied same-origin in production).
 - **Plex Pass** with completed **music sonic analysis** unlocks the discovery features (mixes, track
   radio, similar). Everything else works without it.
+- **The keep-alive.** Chromium drops a page's media session the instant its only playing element
+  ends, and rebuilds it only once the next track has loaded. The car appears to read that lapse as
+  "browser audio ended" (its own media source comes back for the length of the gap, and with the
+  browser off screen the next track never starts). So alongside the music Cabin loops a second
+  `<audio>` element holding a 20 Hz tone at −60 dBFS (inaudible), which keeps the session alive from
+  one track to the next. **Settings → Between tracks** switches it to pure silence or off.
 
 ## Requirements
 
@@ -87,6 +95,8 @@ theme that follows the car, and a left/right-hand-drive option.
 npm install
 npm run dev          # http://localhost:5173 — pair by scanning the QR with your phone
 npm run check        # type-check (svelte-check)
+npm run check:focus  # with `npm run dev` running: plays a queue in headless Chrome and checks the
+                     # page never loses audio focus between tracks (needs Chrome; CHROME=/path to override)
 npm run build        # -> ./build  (static SPA)
 npm run preview      # serve ./build locally
 ```

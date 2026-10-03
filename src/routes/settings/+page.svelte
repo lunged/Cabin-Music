@@ -10,7 +10,7 @@
 		QUALITY_KBPS,
 		type Quality
 	} from '$lib/stores/quality.svelte';
-	import { invalidatePrefetch } from '$lib/stores/player.svelte';
+	import { invalidatePrefetch, keepAlive, setKeepAlive, type KeepAlive } from '$lib/stores/player.svelte';
 	import { session } from '$lib/stores/session.svelte';
 	import { toggleDebug } from '$lib/stores/debug.svelte';
 	import { signOut } from '$lib/plex/auth';
@@ -21,6 +21,11 @@
 		{ id: 'rhd', label: 'Right' }
 	];
 	const qualities: Quality[] = ['original', 'high', 'medium', 'low'];
+	const keepModes: { id: KeepAlive; label: string }[] = [
+		{ id: 'tone', label: 'Inaudible tone' },
+		{ id: 'silent', label: 'Silence' },
+		{ id: 'off', label: 'Off' }
+	];
 
 	function pickQuality(q: Quality) {
 		setQuality(q);
@@ -88,6 +93,22 @@
 			{#each qualities as q (q)}
 				<button class="seg-btn" class:sel={quality.choice === q} onclick={() => pickQuality(q)}>
 					{QUALITY_LABEL[q]}{#if q !== 'original'}&nbsp;· {QUALITY_KBPS[q]}k{/if}
+				</button>
+			{/each}
+		</div>
+	</div>
+
+	<div class="group">
+		<h2>Between tracks</h2>
+		<p class="dim">
+			Cabin plays a signal you can't hear alongside the music, so the car doesn't switch back to its
+			own media between songs or stop the queue when the browser is closed. If that misbehaves, try
+			Silence, then Off.
+		</p>
+		<div class="seg">
+			{#each keepModes as k (k.id)}
+				<button class="seg-btn" class:sel={keepAlive.mode === k.id} onclick={() => setKeepAlive(k.id)}>
+					{k.label}
 				</button>
 			{/each}
 		</div>
