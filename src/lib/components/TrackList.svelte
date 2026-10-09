@@ -4,7 +4,14 @@
 	import { isLoved, toggleLove } from '$lib/stores/ratings.svelte';
 	import Icon from './Icon.svelte';
 
-	let { tracks, showArtist = false }: { tracks: Metadata[]; showArtist?: boolean } = $props();
+	let {
+		tracks,
+		showArtist = false,
+		discs = false
+	}: { tracks: Metadata[]; showArtist?: boolean; discs?: boolean } = $props();
+
+	// Disc headings only when the list really spans more than one disc.
+	const multiDisc = $derived(discs && new Set(tracks.map((t) => t.parentIndex ?? 1)).size > 1);
 
 	const currentKey = $derived(currentTrack()?.ratingKey);
 
@@ -27,6 +34,9 @@
 <ol class="tracks">
 	{#each tracks as t, i (t.ratingKey)}
 		{@const active = t.ratingKey === currentKey}
+		{#if multiDisc && (t.parentIndex ?? 1) !== (tracks[i - 1]?.parentIndex ?? (i ? 1 : 0))}
+			<li class="disc">Disc {t.parentIndex ?? 1}</li>
+		{/if}
 		<li class:active>
 			<button class="track" class:active onclick={() => playList(tracks, i)}>
 				<span class="idx">
@@ -76,6 +86,15 @@
 	}
 	li:nth-child(odd) {
 		background: var(--stripe);
+	}
+	li.disc {
+		background: none;
+		padding: 1.1rem 0.9rem 0.5rem;
+		color: var(--text-dim);
+		font-size: 0.92rem;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
 	}
 	.track {
 		flex: 1 1 auto;

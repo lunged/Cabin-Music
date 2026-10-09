@@ -81,6 +81,7 @@ export interface Metadata {
 	composite?: string; // playlist/mix art grid
 	art?: string; // background / fallback art
 	index?: number; // track number
+	parentIndex?: number; // disc number (for a track)
 	year?: number;
 	duration?: number; // ms
 	leafCount?: number; // playlist/album track count

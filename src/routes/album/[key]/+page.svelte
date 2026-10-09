@@ -37,7 +37,8 @@
 		try {
 			const [m, children] = await Promise.all([
 				getMetadata(k, signal),
-				getChildren(k, { size: 300, sort: 'index:asc' }, signal)
+				// No sort: Plex's default order is disc, then track. `index:asc` interleaves discs.
+				getChildren(k, { size: 300 }, signal)
 			]);
 			if (signal.aborted) return;
 			header = m;
@@ -86,7 +87,7 @@
 			</div>
 		</header>
 
-		<TrackList {tracks} />
+		<TrackList {tracks} discs />
 	{/if}
 </section>
 
